@@ -1,6 +1,7 @@
 local table = require 'ext.table'
 local class = require 'ext.class'
 local gl = require 'ffi.OpenGL'
+local sdl = require 'ffi.sdl'
 local ig = require 'ffi.imgui'
 local ffi = require 'ffi'
 local View = require 'glapp.view'
@@ -9,7 +10,7 @@ local ImGuiApp = require 'imguiapp'
 local vec3d = require 'ffi.vec.vec3d'
 local matrix = require 'matrix'
 
-local App = Orbit(View.apply(class(ImGuiApp)))
+local App = class(Orbit(View.apply(class(ImGuiApp))))
 
 App.title = 'force directed graph'
 
@@ -24,25 +25,17 @@ function Node:init(args)
 	end
 end
 
+local running = ffi.new('bool[1]', 1)
 local pointsize = ffi.new('float[1]', 3)
-local dt = ffi.new('float[1]', .1)
-local pullcoeff = ffi.new('float[1]', .9)
-local drawcoeff = ffi.new('float[1]', .9)
+local dt = ffi.new('float[1]', .01)
+local pullcoeff = ffi.new('float[1]', 1)
+local drawcoeff = ffi.new('float[1]', 1)
 local veldecay = ffi.new('float[1]', .9)
 local posdecay = ffi.new('float[1]', .99)
 local repel = ffi.new('float[1]', .01)
 local restdist = ffi.new('float[1]', .1)
 
 local hoverNode
-
-local function pullfunc(d, c)
-	if d == math.huge then
-		return 0
-	else
-		--return pull = c / (d + 1)	-- pullcoeff = .1 works well
-		return math.pow(tonumber(c), d)
-	end
-end
 
 --[[
 config format:
@@ -59,9 +52,17 @@ weights = {
 --]]
 function App:init(args, ...)
 	self.nodes = table.mapi(args.nodes, function(node)
+		local name, pos
+		if type(node) == 'table' then
+			name = node.name
+			pos = node.pos
+		else
+			name = tostring(node)
+			pos = vec3d(crand(), crand(), crand())
+		end
 		return Node{
-			name = tostring(node),
-			pos = vec3d(crand(), crand(), crand()),
+			name = name,
+			pos = pos,
 			vel = vec3d(0,0,0),
 			acc = vec3d(0,0,0),
 		}
@@ -70,34 +71,79 @@ function App:init(args, ...)
 	return App.super.init(self, args, ...)
 end
 
-function App:update()
-	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
-
+function App:calcAccel()
 	for i,n in ipairs(self.nodes) do
 		n.acc = vec3d(0,0,0)
 	end
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
-				local pull = pullfunc(self.weights[i][j], pullcoeff[0])
+				local pull = pullcoeff[0]
 				local diff = n2.pos - n.pos	-- from n to n2
-				local dist = math.max(diff:length(), 1e-7)
-				local dir = diff / dist
-				local force = dir * (pull * (dist - restdist[0]) - repel[0] / (dist * dist))
+				local dist = math.max(diff:length(), 1e-4)
+				--local dir = diff / dist
+				
+				local restlen = restdist[0] * self.weights[i][j]
+
+				--local force = dir * (pull * (dist - restlen) - repel[0] / (dist * dist))
+				local force = diff * (dist - restlen ) / dist 
+							- diff * repel[0] / (dist * dist)
 				
 				n.acc = n.acc + force * dt[0]
 				n2.acc = n2.acc - force * dt[0]
 			end
 		end
 	end
+end
 
-	for _,n in ipairs(self.nodes) do
-		n.pos = n.pos + n.vel * dt[0]
-		n.vel = n.vel + n.acc * dt[0]
-	
-		n.vel = n.vel * veldecay[0]	-- decay / bound
-		n.pos = n.pos * posdecay[0]	-- decay / bound
+function App:update()
+	if running[0] then
+-- [[ Runge-Kutta 4
+		for _,n in ipairs(self.nodes) do
+			n.pushVel = vec3d(n.vel:unpack())
+			n.pushPos = vec3d(n.pos:unpack())
+		end
+		self:calcAccel()
+		for _,n in ipairs(self.nodes) do
+			n.k1a = vec3d(n.acc:unpack())
+			n.k1v = vec3d(n.vel:unpack())
+			n.vel = n.pushVel + n.k1a * dt[0]/2
+			n.pos = n.pushPos + n.k1v * dt[0]/2
+		end
+		self:calcAccel()
+		for _,n in ipairs(self.nodes) do
+			n.k2a = vec3d(n.acc:unpack())
+			n.k2v = vec3d(n.vel:unpack())
+			n.vel = n.pushVel + n.k2a * dt[0]/2
+			n.pos = n.pushPos + n.k2v * dt[0]/2
+		end
+		self:calcAccel()
+		for _,n in ipairs(self.nodes) do
+			n.k3a = vec3d(n.acc:unpack())
+			n.k3v = vec3d(n.vel:unpack())
+			n.vel = n.pushVel + n.k3a * dt[0]
+			n.pos = n.pushPos + n.k3v * dt[0]
+		end
+		self:calcAccel()
+		for _,n in ipairs(self.nodes) do
+			n.k4a = vec3d(n.acc:unpack())
+			n.k4v = vec3d(n.vel:unpack())
+			n.vel = n.pushVel + (n.k1a + n.k2a * 2 + n.k3a * 2 + n.k4a) / 6 * dt[0]
+			n.pos = n.pushPos + (n.k3v + n.k2v * 2 + n.k3v * 2 + n.k4v) / 6 * dt[0]
+		end
+--]]
+--[[ forward-Euler
+		for _,n in ipairs(self.nodes) do
+			n.pos = n.pos + n.vel * dt[0]
+			n.vel = n.vel + n.acc * dt[0]
+		
+			n.vel = n.vel * veldecay[0]	-- decay / bound
+			n.pos = n.pos * posdecay[0]	-- decay / bound
+		end
+--]]
 	end
+	
+	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
 
 	gl.glPointSize(pointsize[0])
 	gl.glHint(gl.GL_POINT_SMOOTH, gl.GL_NICEST)
@@ -127,7 +173,7 @@ function App:update()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
-				local l = pullfunc(self.weights[i][j], drawcoeff[0])
+				local l = drawcoeff[0] * self.weights[i][j]
 				gl.glColor3f(l,l,l)
 				gl.glVertex3dv(n.pos:ptr())
 				gl.glVertex3dv(n2.pos:ptr())
@@ -140,6 +186,7 @@ function App:update()
 end
 
 function App:updateGUI()
+	ig.igCheckbox('running', running)
 	ig.igInputFloat('pointsize', pointsize)
 	ig.igInputFloat('dt', dt)
 	ig.igInputFloat('pullcoeff', pullcoeff)
@@ -196,6 +243,20 @@ function App:updateGUI()
 		ig.igBeginTooltip()
 		ig.igText(hoverNode.name)
 		ig.igEndTooltip()
+	end
+end
+
+function App:event(event, ...)
+	App.super.event(self, event, ...)
+	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
+	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
+	
+	if canHandleKeyboard then
+		if event.type == sdl.SDL_KEYDOWN then
+			if event.key.keysym.sym == sdl.SDLK_SPACE then
+				running[0] = not running[0]
+			end
+		end
 	end
 end
 
