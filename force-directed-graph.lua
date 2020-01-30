@@ -7,7 +7,7 @@ local ffi = require 'ffi'
 local View = require 'glapp.view'
 local Orbit = require 'glapp.orbit'
 local ImGuiApp = require 'imguiapp'
-local vec3d = require 'ffi.vec.vec3d'
+local vec3d = require 'vec-ffi.vec3d'
 local matrix = require 'matrix'
 
 local App = class(Orbit(View.apply(class(ImGuiApp))))

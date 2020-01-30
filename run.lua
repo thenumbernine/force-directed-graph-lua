@@ -2,7 +2,7 @@
 local table = require 'ext.table'
 local range = require 'ext.range'
 local matrix = require 'matrix'
-local vec3d = require 'ffi.vec.vec3d'
+local vec3d = require 'vec-ffi.vec3d'
 
 local function mod1(a,b) return (a-1)%b+1 end
 
