@@ -163,7 +163,7 @@ function App:update()
 		else
 			gl.glColor3f(1,1,1)
 		end
-		gl.glVertex3dv(n.pos:ptr())
+		gl.glVertex3dv(n.pos.s)
 	end
 	gl.glEnd()
 
@@ -175,8 +175,8 @@ function App:update()
 			if i ~= j then
 				local l = drawcoeff[0] * self.weights[i][j]
 				gl.glColor3f(l,l,l)
-				gl.glVertex3dv(n.pos:ptr())
-				gl.glVertex3dv(n2.pos:ptr())
+				gl.glVertex3dv(n.pos.s)
+				gl.glVertex3dv(n2.pos.s)
 			end
 		end
 	end
