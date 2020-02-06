@@ -4,13 +4,10 @@ local gl = require 'ffi.OpenGL'
 local sdl = require 'ffi.sdl'
 local ig = require 'ffi.imgui'
 local ffi = require 'ffi'
-local View = require 'glapp.view'
-local Orbit = require 'glapp.orbit'
-local ImGuiApp = require 'imguiapp'
 local vec3d = require 'vec-ffi.vec3d'
 local matrix = require 'matrix'
 
-local App = class(Orbit(View.apply(class(ImGuiApp))))
+local App = class(require 'glapp.orbit'(require 'imguiapp'))
 
 App.title = 'force directed graph'
 
