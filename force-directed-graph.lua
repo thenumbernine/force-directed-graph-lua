@@ -24,13 +24,13 @@ end
 
 local running = ffi.new('bool[1]', 1)
 local pointsize = ffi.new('float[1]', 3)
-local dt = ffi.new('float[1]', .01)
+local dt = ffi.new('float[1]', .1)
 local pullcoeff = ffi.new('float[1]', 1)
 local drawcoeff = ffi.new('float[1]', 1)
 local veldecay = ffi.new('float[1]', .9)
 local posdecay = ffi.new('float[1]', .99)
-local repel = ffi.new('float[1]', .01)
-local restdist = ffi.new('float[1]', .1)
+local repel = ffi.new('float[1]', .1)
+local restdist = ffi.new('float[1]', 1)
 
 local hoverNode
 
@@ -133,11 +133,13 @@ function App:update()
 		for _,n in ipairs(self.nodes) do
 			n.pos = n.pos + n.vel * dt[0]
 			n.vel = n.vel + n.acc * dt[0]
+		end
+--]]
 		
+		for _,n in ipairs(self.nodes) do
 			n.vel = n.vel * veldecay[0]	-- decay / bound
 			n.pos = n.pos * posdecay[0]	-- decay / bound
 		end
---]]
 	end
 	
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
