@@ -2,7 +2,7 @@ local table = require 'ext.table'
 local class = require 'ext.class'
 local gl = require 'ffi.OpenGL'
 local sdl = require 'ffi.sdl'
-local ig = require 'ffi.imgui'
+local ig = require 'imgui'
 local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
 local matrix = require 'matrix'
@@ -22,15 +22,15 @@ function Node:init(args)
 	end
 end
 
-local running = ffi.new('bool[1]', 1)
-local pointsize = ffi.new('float[1]', 3)
-local dt = ffi.new('float[1]', .1)
-local pullcoeff = ffi.new('float[1]', 1)
-local drawcoeff = ffi.new('float[1]', 1)
-local veldecay = ffi.new('float[1]', .9)
-local posdecay = ffi.new('float[1]', .99)
-local repel = ffi.new('float[1]', .1)
-local restdist = ffi.new('float[1]', 1)
+running = true
+pointsize = 3
+dt = .1
+pullcoeff = 1
+drawcoeff = 1
+veldecay = .9
+posdecay = .99
+repel = .1
+restdist = 1
 
 local hoverNode
 
@@ -75,26 +75,26 @@ function App:calcAccel()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
-				local pull = pullcoeff[0]
+				local pull = pullcoeff
 				local diff = n2.pos - n.pos	-- from n to n2
 				local dist = math.max(diff:length(), 1e-4)
 				--local dir = diff / dist
 				
-				local restlen = restdist[0] * self.weights[i][j]
+				local restlen = restdist * self.weights[i][j]
 
-				--local force = dir * (pull * (dist - restlen) - repel[0] / (dist * dist))
+				--local force = dir * (pull * (dist - restlen) - repel / (dist * dist))
 				local force = diff * (dist - restlen ) / dist 
-							- diff * repel[0] / (dist * dist)
+							- diff * repel / (dist * dist)
 				
-				n.acc = n.acc + force * dt[0]
-				n2.acc = n2.acc - force * dt[0]
+				n.acc = n.acc + force * dt
+				n2.acc = n2.acc - force * dt
 			end
 		end
 	end
 end
 
 function App:update()
-	if running[0] then
+	if running then
 -- [[ Runge-Kutta 4
 		for _,n in ipairs(self.nodes) do
 			n.pushVel = vec3d(n.vel:unpack())
@@ -104,47 +104,47 @@ function App:update()
 		for _,n in ipairs(self.nodes) do
 			n.k1a = vec3d(n.acc:unpack())
 			n.k1v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + n.k1a * dt[0]/2
-			n.pos = n.pushPos + n.k1v * dt[0]/2
+			n.vel = n.pushVel + n.k1a * dt/2
+			n.pos = n.pushPos + n.k1v * dt/2
 		end
 		self:calcAccel()
 		for _,n in ipairs(self.nodes) do
 			n.k2a = vec3d(n.acc:unpack())
 			n.k2v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + n.k2a * dt[0]/2
-			n.pos = n.pushPos + n.k2v * dt[0]/2
+			n.vel = n.pushVel + n.k2a * dt/2
+			n.pos = n.pushPos + n.k2v * dt/2
 		end
 		self:calcAccel()
 		for _,n in ipairs(self.nodes) do
 			n.k3a = vec3d(n.acc:unpack())
 			n.k3v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + n.k3a * dt[0]
-			n.pos = n.pushPos + n.k3v * dt[0]
+			n.vel = n.pushVel + n.k3a * dt
+			n.pos = n.pushPos + n.k3v * dt
 		end
 		self:calcAccel()
 		for _,n in ipairs(self.nodes) do
 			n.k4a = vec3d(n.acc:unpack())
 			n.k4v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + (n.k1a + n.k2a * 2 + n.k3a * 2 + n.k4a) / 6 * dt[0]
-			n.pos = n.pushPos + (n.k3v + n.k2v * 2 + n.k3v * 2 + n.k4v) / 6 * dt[0]
+			n.vel = n.pushVel + (n.k1a + n.k2a * 2 + n.k3a * 2 + n.k4a) / 6 * dt
+			n.pos = n.pushPos + (n.k3v + n.k2v * 2 + n.k3v * 2 + n.k4v) / 6 * dt
 		end
 --]]
 --[[ forward-Euler
 		for _,n in ipairs(self.nodes) do
-			n.pos = n.pos + n.vel * dt[0]
-			n.vel = n.vel + n.acc * dt[0]
+			n.pos = n.pos + n.vel * dt
+			n.vel = n.vel + n.acc * dt
 		end
 --]]
 		
 		for _,n in ipairs(self.nodes) do
-			n.vel = n.vel * veldecay[0]	-- decay / bound
-			n.pos = n.pos * posdecay[0]	-- decay / bound
+			n.vel = n.vel * veldecay	-- decay / bound
+			n.pos = n.pos * posdecay	-- decay / bound
 		end
 	end
 	
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
 
-	gl.glPointSize(pointsize[0])
+	gl.glPointSize(pointsize)
 	gl.glHint(gl.GL_POINT_SMOOTH, gl.GL_NICEST)
 	gl.glHint(gl.GL_LINE_SMOOTH, gl.GL_NICEST)
 	gl.glHint(gl.GL_POLYGON_SMOOTH, gl.GL_NICEST)
@@ -172,7 +172,7 @@ function App:update()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
-				local l = drawcoeff[0] * self.weights[i][j]
+				local l = drawcoeff * self.weights[i][j]
 				gl.glColor3f(l,l,l)
 				gl.glVertex3dv(n.pos.s)
 				gl.glVertex3dv(n2.pos.s)
@@ -185,15 +185,15 @@ function App:update()
 end
 
 function App:updateGUI()
-	ig.igCheckbox('running', running)
-	ig.igInputFloat('pointsize', pointsize)
-	ig.igInputFloat('dt', dt)
-	ig.igInputFloat('pullcoeff', pullcoeff)
-	ig.igInputFloat('drawcoeff', drawcoeff)
-	ig.igInputFloat('veldecay', veldecay)
-	ig.igInputFloat('posdecay', posdecay)
-	ig.igInputFloat('repel', repel)
-	ig.igInputFloat('restdist', restdist)
+	ig.luatableCheckbox('running', _G, 'running')
+	ig.luatableInputFloat('pointsize', _G, 'pointsize')
+	ig.luatableInputFloat('dt', _G, 'dt')
+	ig.luatableInputFloat('pullcoeff', _G, 'pullcoeff')
+	ig.luatableInputFloat('drawcoeff', _G, 'drawcoeff')
+	ig.luatableInputFloat('veldecay', _G, 'veldecay')
+	ig.luatableInputFloat('posdecay', _G, 'posdecay')
+	ig.luatableInputFloat('repel', _G, 'repel')
+	ig.luatableInputFloat('restdist', _G, 'restdist')
 	if ig.igButton'reset' then
 		for _,n in ipairs(self.nodes) do
 			n.pos = vec3d( crand(), crand(), crand() )
@@ -253,7 +253,7 @@ function App:event(event, ...)
 	if canHandleKeyboard then
 		if event.type == sdl.SDL_KEYDOWN then
 			if event.key.keysym.sym == sdl.SDLK_SPACE then
-				running[0] = not running[0]
+				running = not running
 			end
 		end
 	end
