@@ -7,7 +7,7 @@ local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
 local matrix = require 'matrix'
 
-local App = class(require 'glapp.orbit'(require 'imguiapp'))
+local App = require 'imguiapp.withorbit'()
 
 App.title = 'force directed graph'
 
