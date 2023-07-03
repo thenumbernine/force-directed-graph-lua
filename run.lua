@@ -124,7 +124,7 @@ for i=1,#nodes do
 		weights[i][j] = weights[i][j] or 0
 	end
 end
-require 'force-directed-graph'{
+return require 'force-directed-graph'{
 	nodes = nodes,
 	weights = weights,
 }:run()
