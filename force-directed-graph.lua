@@ -245,14 +245,14 @@ function App:updateGUI()
 	end
 end
 
-function App:event(event, ...)
-	App.super.event(self, event, ...)
+function App:event(event)
+	App.super.event(self, event)
 	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 	
 	if canHandleKeyboard then
-		if event.type == sdl.SDL_KEYDOWN then
-			if event.key.keysym.sym == sdl.SDLK_SPACE then
+		if event[0].type == sdl.SDL_KEYDOWN then
+			if event[0].key.keysym.sym == sdl.SDLK_SPACE then
 				running = not running
 			end
 		end
