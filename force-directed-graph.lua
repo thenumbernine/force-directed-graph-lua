@@ -252,7 +252,7 @@ function App:event(event)
 	
 	if canHandleKeyboard then
 		if event[0].type == sdl.SDL_EVENT_KEYD_OWN then
-			if event[0].key.keysym.sym == sdl.SDLK_SPACE then
+			if event[0].key.key == sdl.SDLK_SPACE then
 				running = not running
 			end
 		end
