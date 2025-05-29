@@ -251,7 +251,7 @@ function App:event(event)
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 	
 	if canHandleKeyboard then
-		if event[0].type == sdl.SDL_KEYDOWN then
+		if event[0].type == sdl.SDL_EVENT_KEYD_OWN then
 			if event[0].key.keysym.sym == sdl.SDLK_SPACE then
 				running = not running
 			end
