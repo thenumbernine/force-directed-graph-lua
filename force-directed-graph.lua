@@ -7,7 +7,7 @@ local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
 local matrix = require 'matrix'
 
-local App = require 'imguiapp.withorbit'()
+local App = require 'imgui.appwithorbit'()
 App.viewUseGLMatrixMode = true 
 App.title = 'force directed graph'
 
