@@ -1,7 +1,7 @@
 local table = require 'ext.table'
 local class = require 'ext.class'
 local gl = require 'gl'
-local sdl = require 'ffi.req' 'sdl'
+local sdl = require 'sdl'
 local ig = require 'imgui'
 local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
