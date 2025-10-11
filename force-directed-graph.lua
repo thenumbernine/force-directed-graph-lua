@@ -184,6 +184,8 @@ function App:update()
 	App.super.update(self)
 end
 
+local mvmat = ffi.new'double[16]'
+local projmat = ffi.new'double[16]'
 function App:updateGUI()
 	ig.luatableCheckbox('running', _G, 'running')
 	ig.luatableInputFloat('pointsize', _G, 'pointsize')
@@ -205,12 +207,10 @@ function App:updateGUI()
 	local mousePos = ig.igGetMousePos()
 	
 	-- store screen-space coordinates associated with each point
-	local mvmat = ffi.new'double[16]'
 	gl.glGetDoublev(gl.GL_MODELVIEW_MATRIX, mvmat)
 	mvmat = matrix{4,4}:lambda(function(i,j)
 		return tonumber(mvmat[i-1+4*(j-1)])
 	end)
-	local projmat = ffi.new'double[16]'
 	gl.glGetDoublev(gl.GL_PROJECTION_MATRIX, projmat)
 	projmat = matrix{4,4}:lambda(function(i,j)
 		return tonumber(projmat[i-1+4*(j-1)])
