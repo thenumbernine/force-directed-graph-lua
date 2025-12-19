@@ -5,10 +5,9 @@ local sdl = require 'sdl'
 local ig = require 'imgui'
 local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
-local matrix = require 'matrix'
+local matrix = require 'matrix.ffi'
 
 local App = require 'imgui.appwithorbit'()
-App.viewUseGLMatrixMode = true 
 App.title = 'force directed graph'
 
 App.viewDist = 2
@@ -184,8 +183,6 @@ function App:update()
 	App.super.update(self)
 end
 
-local mvmat = ffi.new'double[16]'
-local projmat = ffi.new'double[16]'
 function App:updateGUI()
 	ig.luatableCheckbox('running', _G, 'running')
 	ig.luatableInputFloat('pointsize', _G, 'pointsize')
@@ -205,23 +202,13 @@ function App:updateGUI()
 
 
 	local mousePos = ig.igGetMousePos()
-	
-	-- store screen-space coordinates associated with each point
-	gl.glGetDoublev(gl.GL_MODELVIEW_MATRIX, mvmat)
-	mvmat = matrix{4,4}:lambda(function(i,j)
-		return tonumber(mvmat[i-1+4*(j-1)])
-	end)
-	gl.glGetDoublev(gl.GL_PROJECTION_MATRIX, projmat)
-	projmat = matrix{4,4}:lambda(function(i,j)
-		return tonumber(projmat[i-1+4*(j-1)])
-	end)
-	local mvpmat = projmat * mvmat
-	
 	local bestMouseDist = math.huge
 	local bestMouseNode 
-		
+
+	-- why isn't it updating...
+	--self.view:setup(self.width / self.height)
 	for i,n in ipairs(self.nodes) do
-		n.screenpos = mvpmat * matrix{n.pos.x, n.pos.y, n.pos.z, 1}
+		n.screenpos = self.view.mvProjMat * matrix{n.pos.x, n.pos.y, n.pos.z, 1}
 		local x, y, z, w = n.screenpos:unpack()
 		x = math.floor((.5 + .5 * x / w) * self.width)
 		y = math.floor((.5 - .5 * y / w) * self.height)
@@ -247,11 +234,12 @@ end
 
 function App:event(event)
 	App.super.event(self, event)
+
 	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 	
 	if canHandleKeyboard then
-		if event[0].type == sdl.SDL_EVENT_KEYD_OWN then
+		if event[0].type == sdl.SDL_EVENT_KEY_DOWN then
 			if event[0].key.key == sdl.SDLK_SPACE then
 				running = not running
 			end
