@@ -286,11 +286,26 @@ function App:updateGUI()
 	end
 end
 
-function App:event(event)
-	App.super.event(self, event)
+function App:mouseDownEvent(...)
+	local dx, dy, shiftDown, guiDown, altDown, x, y = ...
+	if hoverNode
+	and self.mouse.leftDown
+	then
+		local dist = (hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
+		hoverNode.pos += self.view.angle:rotate(vec3d(dx,-dy,0) * (dist * 2 / self.height))
+		-- ... then drag the current mouse-over node
+		-- ... and don't update any more
+		return
+	end
 
+	return App.super.mouseDownEvent(self, ...)
+end
+
+function App:event(event)
 	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
+
+	App.super.event(self, event)
 
 	if canHandleKeyboard then
 		if event[0].type == sdl.SDL_EVENT_KEY_DOWN then
