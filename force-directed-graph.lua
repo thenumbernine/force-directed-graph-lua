@@ -276,14 +276,30 @@ function App:updateGUI()
 			bestMouseNode = n
 			--print('z', z)
 		end
+
+		ig.igPushID_Str(n!.name)
+		ig.igSetNextWindowPos(
+			ig.ImVec2(x,y),
+			0,
+			ig.ImVec2()
+		)
+		ig.igBegin(
+			n.name,
+			nil,
+			ig.ImGuiWindowFlags_NoDecoration
+			| ig.ImGuiWindowFlags_Tooltip
+		)
+		ig.igText(n.name)
+		ig.igEnd()
+		ig.igPopID()
 	end
 	hoverNode = nil
 	local mouseDistThreshold = 20
 	if bestMouseNode and bestMouseDist < mouseDistThreshold then
 		hoverNode = bestMouseNode
-		ig.igBeginTooltip()
-		ig.igText(hoverNode.name)
-		ig.igEndTooltip()
+		--ig.igBeginTooltip()
+		--ig.igText(hoverNode.name)
+		--ig.igEndTooltip()
 	end
 end
 
