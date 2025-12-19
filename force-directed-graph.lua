@@ -5,6 +5,7 @@ local sdl = require 'sdl'
 local ig = require 'imgui'
 local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
+local vec4d = require 'vec-ffi.vec4d'
 local matrix = require 'matrix.ffi'
 
 local App = require 'imgui.appwithorbit'()
@@ -59,6 +60,7 @@ function App:init(args, ...)
 		return Node{
 			name = name,
 			pos = pos,
+			screenpos = vec4d(),
 			vel = vec3d(0,0,0),
 			acc = vec3d(0,0,0),
 		}
@@ -78,18 +80,61 @@ function App:calcAccel()
 				local diff = n2.pos - n.pos	-- from n to n2
 				local dist = math.max(diff:length(), 1e-4)
 				--local dir = diff / dist
-				
+
 				local restlen = restdist * self.weights[i][j]
 
 				--local force = dir * (pull * (dist - restlen) - repel / (dist * dist))
-				local force = diff * (dist - restlen ) / dist 
+				local force = diff * (dist - restlen ) / dist
 							- diff * repel / (dist * dist)
-				
+
 				n.acc = n.acc + force * dt
 				n2.acc = n2.acc - force * dt
 			end
 		end
 	end
+end
+
+function App:initGL(...)
+	App.super.initGL(self, ...)
+
+	self.drawObj = require 'gl.sceneobject'{
+		program = {
+			version = 'latest',
+			precision = 'best',
+			vertexCode = [[
+layout(location=0) in vec3 vertex;
+layout(location=1) in vec3 color;
+out vec3 colorv;
+uniform mat4 mvProjMat;
+void main() {
+	colorv = color;
+	gl_Position = mvProjMat * vec4(vertex, 1.);
+}
+]],
+			fragmentCode = [[
+in vec3 colorv;
+out vec4 fragColor;
+void main() {
+	fragColor = vec4(colorv, 1.);
+}
+]],
+		},
+		geometry = {
+			mode = gl.GL_POINTS,
+		},
+		vertexes = {
+			dim = 3,
+			useVec = true,
+		},
+		attrs = {
+			color = {
+				buffer = {
+					dim = 3,
+					useVec = true,
+				},
+			},
+		},
+	}
 end
 
 function App:update()
@@ -134,13 +179,13 @@ function App:update()
 			n.vel = n.vel + n.acc * dt
 		end
 --]]
-		
+
 		for _,n in ipairs(self.nodes) do
 			n.vel = n.vel * veldecay	-- decay / bound
 			n.pos = n.pos * posdecay	-- decay / bound
 		end
 	end
-	
+
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
 
 	gl.glPointSize(pointsize)
@@ -152,33 +197,39 @@ function App:update()
 	gl.glEnable(gl.GL_POLYGON_SMOOTH)
 	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 	gl.glEnable(gl.GL_BLEND)
-	
-	gl.glColor3f(1,1,1)
-	gl.glBegin(gl.GL_POINTS)
+
+	self.drawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+
+	local vertexCPU, colorCPU = self.drawObj:beginUpdate()
 	for _,n in ipairs(self.nodes) do
 		if n == hoverNode then
-			gl.glColor3f(1,0,1)
+			colorCPU:emplace_back():set(1,0,1)
 		else
-			gl.glColor3f(1,1,1)
+			colorCPU:emplace_back():set(1,1,1)
 		end
-		gl.glVertex3dv(n.pos.s)
+		vertexCPU:emplace_back():set(n.pos:unpack())
 	end
-	gl.glEnd()
+	self.drawObj:endUpdate()
 
 	gl.glEnable(gl.GL_BLEND)
 	gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
-	gl.glBegin(gl.GL_LINES)
+
+	local vertexCPU, colorCPU = self.drawObj:beginUpdate()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
 				local l = drawcoeff * self.weights[i][j]
-				gl.glColor3f(l,l,l)
-				gl.glVertex3dv(n.pos.s)
-				gl.glVertex3dv(n2.pos.s)
+				colorCPU:emplace_back():set(l,l,l)
+				colorCPU:emplace_back():set(l,l,l)
+				vertexCPU:emplace_back():set(n.pos:unpack())
+				vertexCPU:emplace_back():set(n2.pos:unpack())
 			end
 		end
 	end
-	gl.glEnd()
+	-- TODO endUpdate pass to :draw() overrides...
+	self.drawObj.geometry.mode = gl.GL_LINES
+	self.drawObj:endUpdate()
+	self.drawObj.geometry.mode = gl.GL_POINTS
 
 	App.super.update(self)
 end
@@ -203,13 +254,11 @@ function App:updateGUI()
 
 	local mousePos = ig.igGetMousePos()
 	local bestMouseDist = math.huge
-	local bestMouseNode 
+	local bestMouseNode
 
-	-- why isn't it updating...
-	--self.view:setup(self.width / self.height)
 	for i,n in ipairs(self.nodes) do
-		n.screenpos = self.view.mvProjMat * matrix{n.pos.x, n.pos.y, n.pos.z, 1}
-		local x, y, z, w = n.screenpos:unpack()
+		local x, y, z, w = self.view.mvProjMat:mul4x4v4(n.pos:unpack())
+		n.screenpos:set(x,y,z,w)
 		x = math.floor((.5 + .5 * x / w) * self.width)
 		y = math.floor((.5 - .5 * y / w) * self.height)
 		z = 1 - z / w
@@ -237,7 +286,7 @@ function App:event(event)
 
 	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
-	
+
 	if canHandleKeyboard then
 		if event[0].type == sdl.SDL_EVENT_KEY_DOWN then
 			if event[0].key.key == sdl.SDLK_SPACE then
