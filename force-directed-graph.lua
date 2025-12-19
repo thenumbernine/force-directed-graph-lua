@@ -200,7 +200,10 @@ function App:update()
 
 	self.drawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
-	local vertexCPU, colorCPU = self.drawObj:beginUpdate()
+	local vertexGPU = self.drawObj.attrs.vertex.buffer
+	local colorGPU = self.drawObj.attrs.color.buffer
+	local vertexCPU = vertexGPU:beginUpdate()
+	local colorCPU = colorGPU:beginUpdate()
 	for _,n in ipairs(self.nodes) do
 		if n == hoverNode then
 			colorCPU:emplace_back():set(1,0,1)
@@ -209,12 +212,15 @@ function App:update()
 		end
 		vertexCPU:emplace_back():set(n.pos:unpack())
 	end
+	-- TODO endUpdate pass to :draw() overrides...
+	self.drawObj.geometry.mode = gl.GL_POINTS
 	self.drawObj:endUpdate()
 
 	gl.glEnable(gl.GL_BLEND)
 	gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 
-	local vertexCPU, colorCPU = self.drawObj:beginUpdate()
+	vertexCPU = vertexGPU:beginUpdate()
+	colorCPU = colorGPU:beginUpdate()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
@@ -229,7 +235,6 @@ function App:update()
 	-- TODO endUpdate pass to :draw() overrides...
 	self.drawObj.geometry.mode = gl.GL_LINES
 	self.drawObj:endUpdate()
-	self.drawObj.geometry.mode = gl.GL_POINTS
 
 	App.super.update(self)
 end
