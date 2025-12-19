@@ -6,7 +6,6 @@ local ig = require 'imgui'
 local ffi = require 'ffi'
 local vec3d = require 'vec-ffi.vec3d'
 local vec4d = require 'vec-ffi.vec4d'
-local matrix = require 'matrix.ffi'
 
 local App = require 'imgui.appwithorbit'()
 App.title = 'force directed graph'
@@ -223,7 +222,9 @@ function App:update()
 	colorCPU = colorGPU:beginUpdate()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
-			if i ~= j then
+			if i ~= j
+			and self.weights[i][j] ~= 0
+			then
 				local l = drawcoeff * self.weights[i][j]
 				colorCPU:emplace_back():set(l,l,l)
 				colorCPU:emplace_back():set(l,l,l)
