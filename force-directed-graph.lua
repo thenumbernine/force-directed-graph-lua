@@ -9,8 +9,6 @@ local sdl = require 'sdl'
 local ig = require 'imgui'
 local ffi = require 'ffi'
 local vec3f = require 'vec-ffi.vec3f'
-local vec3d = require 'vec-ffi.vec3d'
-local vec4d = require 'vec-ffi.vec4d'
 
 local App = require 'imgui.appwithorbit'()
 App.title = 'force directed graph'
@@ -41,7 +39,7 @@ local integrators = table{
 		name = 'F.E.',
 		update = function(integrator, app)
 			app:calcAccel()
-			for _,n in ipairs(app.nodes) do
+			for i,n in ipairs(app.nodes) do
 				n.pos.x = n.pos.x + n.vel.x * dt
 				n.pos.y = n.pos.y + n.vel.y * dt
 				n.pos.z = n.pos.z + n.vel.z * dt
@@ -151,27 +149,26 @@ function App:init(args, ...)
 			pos = node.pos
 		else
 			name = tostring(node)
-			pos = vec3d(crand(), crand(), crand())
+			pos = vec3f(crand(), crand(), crand())
 		end
 		return Node{
 			name = tostring(name),
 			pos = pos,
-			screenPos = vec4d(),
-			vel = vec3d(0,0,0),
-			acc = vec3d(0,0,0),
+			vel = vec3f(0,0,0),
+			acc = vec3f(0,0,0),
 
 			-- integrator helpers
-			pushPos = vec3d(),
-			pushVel = vec3d(),
-			pushAcc = vec3d(),
-			k1a = vec3d(),
-			k1v = vec3d(),
-			k2a = vec3d(),
-			k2v = vec3d(),
-			k3a = vec3d(),
-			k3v = vec3d(),
-			k4a = vec3d(),
-			k4v = vec3d(),
+			pushPos = vec3f(),
+			pushVel = vec3f(),
+			pushAcc = vec3f(),
+			k1a = vec3f(),
+			k1v = vec3f(),
+			k2a = vec3f(),
+			k2v = vec3f(),
+			k3a = vec3f(),
+			k3v = vec3f(),
+			k4a = vec3f(),
+			k4v = vec3f(),
 		}
 	end)
 	self.weights = args.weights
@@ -202,16 +199,12 @@ function App:calcAccel()
 			local fy = dy * forceScale
 			local fz = dz * forceScale
 
-			if i ~= self.draggingNodeIndex then
-				n.acc.x = n.acc.x + fx
-				n.acc.y = n.acc.y + fy
-				n.acc.z = n.acc.z + fz
-			end
-			if j ~= self.draggingNodeIndex then
-				n2.acc.x = n2.acc.x - fx
-				n2.acc.y = n2.acc.y - fy
-				n2.acc.z = n2.acc.z - fz
-			end
+			n.acc.x = n.acc.x + fx
+			n.acc.y = n.acc.y + fy
+			n.acc.z = n.acc.z + fz
+			n2.acc.x = n2.acc.x - fx
+			n2.acc.y = n2.acc.y - fy
+			n2.acc.z = n2.acc.z - fz
 		end
 	end
 end
@@ -331,6 +324,8 @@ void main() {
 	}
 end
 
+local pushDraggingPos = vec3f()
+local pushDraggingVel = vec3f()
 function App:update()
 	if not self.hasFocus then
 		sdl.SDL_Delay(300)
@@ -339,11 +334,20 @@ function App:update()
 
 	if running then
 		local integrator = assert.index(integrators, integratorIndex, "unknown integrator")
+
+		local draggingNode = self.draggingNodeIndex and self.nodes[self.draggingNodeIndex]
+		if draggingNode then
+			pushDraggingPos:set(draggingNode.pos:unpack())
+			pushDraggingVel:set(draggingNode.vel:unpack())
+		end
+
 		integrator:update(self)
 
+		-- TODO don't use n.pos , just use vertexCPU
+		-- then TODO use transform feedback buffer for integration
 		local vertexCPU = self.vertexGPU.vec
 		local vertexPtr = vertexCPU.v + 0
-		for _,n in ipairs(self.nodes) do
+		for i,n in ipairs(self.nodes) do
 			n.vel.x = n.vel.x * veldecay	-- decay / bound
 			n.vel.y = n.vel.y * veldecay
 			n.vel.z = n.vel.z * veldecay
@@ -352,6 +356,11 @@ function App:update()
 			n.pos.z = n.pos.z * posdecay
 			vertexPtr.x, vertexPtr.y, vertexPtr.z = n.pos.x, n.pos.y, n.pos.z
 			vertexPtr = vertexPtr + 1
+		end
+
+		if draggingNode then
+			draggingNode.pos:set(pushDraggingPos:unpack())
+			draggingNode.vel:set(pushDraggingVel:unpack())
 		end
 
 		self.vertexGPU
@@ -418,7 +427,6 @@ function App:updateGUI()
 
 	for i,n in ipairs(self.nodes) do
 		local x, y, z, w = self.view.mvProjMat:mul4x4v4(n.pos:unpack())
-		n.screenPos:set(x,y,z,w)
 		if x >= -w and x <= w
 		and y >= -w and y <= w
 		and z >= -w and z <= w
@@ -476,7 +484,10 @@ function App:updateGUI()
 			local dx = self.mouse.deltaPos.x * self.width
 			local dy = self.mouse.deltaPos.y * self.height
 			local dist = (hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
-			hoverNode.pos = hoverNode.pos + self.view.angle:rotate(vec3d(dx,dy,0) * (dist * 2 / self.height))
+			local move = self.view.angle:rotate(vec3f(dx,dy,0) * (dist * 2 / self.height))
+			hoverNode.pos.x = hoverNode.pos.x + move.x
+			hoverNode.pos.y = hoverNode.pos.y + move.y
+			hoverNode.pos.z = hoverNode.pos.z + move.z
 			-- ... then drag the current mouse-over node
 			-- ... and don't update any more
 		end
