@@ -25,7 +25,7 @@ function Node:init(args)
 end
 
 running = true
-pointsize = 3
+pointSize = 3
 dt = .1
 pullcoeff = 1
 drawcoeff = 1
@@ -38,67 +38,83 @@ local integrators = table{
 	{
 		name = 'F.E.',
 		update = function(integrator, app)
+			local npos = app.vertexGPU.vec.v + 0
 			app:calcAccel()
 			for i,n in ipairs(app.nodes) do
-				n.pos.x = n.pos.x + n.vel.x * dt
-				n.pos.y = n.pos.y + n.vel.y * dt
-				n.pos.z = n.pos.z + n.vel.z * dt
+				npos.x = npos.x + n.vel.x * dt
+				npos.y = npos.y + n.vel.y * dt
+				npos.z = npos.z + n.vel.z * dt
 				n.vel.x = n.vel.x + n.acc.x * dt
 				n.vel.y = n.vel.y + n.acc.y * dt
 				n.vel.z = n.vel.z + n.acc.z * dt
+				npos = npos + 1
 			end
 		end,
 	},
 	{
 		name = 'RK4',
 		update = function(integrator, app)
+			local npos = app.vertexGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.pushVel.x, n.pushVel.y, n.pushVel.z = n.vel.x, n.vel.y, n.vel.z
-				n.pushPos.x, n.pushPos.y, n.pushPos.z = n.pos.x, n.pos.y, n.pos.z
+				n.pushPos.x, n.pushPos.y, n.pushPos.z = npos.x, npos.y, npos.z
+				npos = npos + 1
 			end
+
 			app:calcAccel()
+			local npos = app.vertexGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k1a.x, n.k1a.y, n.k1a.z = n.acc.x, n.acc.y, n.acc.z
 				n.k1v.x, n.k1v.y, n.k1v.z = n.vel.x, n.vel.y, n.vel.z
 				n.vel.x = n.pushVel.x + n.k1a.x * dt * .5
 				n.vel.y = n.pushVel.y + n.k1a.y * dt * .5
 				n.vel.z = n.pushVel.z + n.k1a.z * dt * .5
-				n.pos.x = n.pushPos.x + n.k1v.x * dt * .5
-				n.pos.y = n.pushPos.y + n.k1v.y * dt * .5
-				n.pos.z = n.pushPos.z + n.k1v.z * dt * .5
+				npos.x = n.pushPos.x + n.k1v.x * dt * .5
+				npos.y = n.pushPos.y + n.k1v.y * dt * .5
+				npos.z = n.pushPos.z + n.k1v.z * dt * .5
+				npos = npos + 1
 			end
+
 			app:calcAccel()
+			local npos = app.vertexGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k2a.x, n.k2a.y, n.k2a.z = n.acc.x, n.acc.y, n.acc.z
 				n.k2v.x, n.k2v.y, n.k2v.z = n.vel.x, n.vel.y, n.vel.z
 				n.vel.x = n.pushVel.x + n.k2a.x * dt * .5
 				n.vel.y = n.pushVel.y + n.k2a.y * dt * .5
 				n.vel.z = n.pushVel.z + n.k2a.z * dt * .5
-				n.pos.x = n.pushPos.x + n.k2v.x * dt * .5
-				n.pos.y = n.pushPos.y + n.k2v.y * dt * .5
-				n.pos.z = n.pushPos.z + n.k2v.z * dt * .5
+				npos.x = n.pushPos.x + n.k2v.x * dt * .5
+				npos.y = n.pushPos.y + n.k2v.y * dt * .5
+				npos.z = n.pushPos.z + n.k2v.z * dt * .5
+				npos = npos + 1
 			end
+
 			app:calcAccel()
+			local npos = app.vertexGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k3a.x, n.k3a.y, n.k3a.z = n.acc.x, n.acc.y, n.acc.z
 				n.k3v.x, n.k3v.y, n.k3v.z = n.vel.x, n.vel.y, n.vel.z
 				n.vel.x = n.pushVel.x + n.k3a.x * dt
 				n.vel.y = n.pushVel.y + n.k3a.y * dt
 				n.vel.z = n.pushVel.z + n.k3a.z * dt
-				n.pos.x = n.pushPos.x + n.k3v.x * dt
-				n.pos.y = n.pushPos.y + n.k3v.y * dt
-				n.pos.z = n.pushPos.z + n.k3v.z * dt
+				npos.x = n.pushPos.x + n.k3v.x * dt
+				npos.y = n.pushPos.y + n.k3v.y * dt
+				npos.z = n.pushPos.z + n.k3v.z * dt
+				npos = npos + 1
 			end
+
 			app:calcAccel()
+			local npos = app.vertexGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k4a.x, n.k4a.y, n.k4a.z = n.acc.x, n.acc.y, n.acc.z
 				n.k4v.x, n.k4v.y, n.k4v.z = n.vel.x, n.vel.y, n.vel.z
 				n.vel.x = n.pushVel.x + (n.k1a.x + n.k2a.x * 2 + n.k3a.x * 2 + n.k4a.x) / 6 * dt
 				n.vel.y = n.pushVel.y + (n.k1a.y + n.k2a.y * 2 + n.k3a.y * 2 + n.k4a.y) / 6 * dt
 				n.vel.z = n.pushVel.z + (n.k1a.z + n.k2a.z * 2 + n.k3a.z * 2 + n.k4a.z) / 6 * dt
-				n.pos.x = n.pushPos.x + (n.k1v.x + n.k2v.x * 2 + n.k3v.x * 2 + n.k4v.x) / 6 * dt
-				n.pos.y = n.pushPos.y + (n.k1v.y + n.k2v.y * 2 + n.k3v.y * 2 + n.k4v.y) / 6 * dt
-				n.pos.z = n.pushPos.z + (n.k1v.z + n.k2v.z * 2 + n.k3v.z * 2 + n.k4v.z) / 6 * dt
+				npos.x = n.pushPos.x + (n.k1v.x + n.k2v.x * 2 + n.k3v.x * 2 + n.k4v.x) / 6 * dt
+				npos.y = n.pushPos.y + (n.k1v.y + n.k2v.y * 2 + n.k3v.y * 2 + n.k4v.y) / 6 * dt
+				npos.z = n.pushPos.z + (n.k1v.z + n.k2v.z * 2 + n.k3v.z * 2 + n.k4v.z) / 6 * dt
+				npos = npos + 1
 			end
 		end,
 	},
@@ -106,20 +122,24 @@ local integrators = table{
 		name = 'P.C.',
 		update = function(integrator, app)
 			app:calcAccel()
+			local npos = app.vertexGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.pushVel.x, n.pushVel.y, n.pushVel.z = n.vel.x, n.vel.y, n.vel.z
-				n.pushPos.x, n.pushPos.y, n.pushPos.z = n.pos.x, n.pos.y, n.pos.z
+				n.pushPos.x, n.pushPos.y, n.pushPos.z = npos.x, npos.y, npos.z
 				n.pushAcc.x, n.pushAcc.y, n.pushAcc.z = n.acc.x, n.acc.y, n.acc.z
+				npos = npos + 1
 			end
 			for iter=1,30 do
 				app:calcAccel()
+				local npos = app.vertexGPU.vec.v + 0
 				for _,n in ipairs(app.nodes) do
-					n.pos.x = n.pushPos.x + (n.pushVel.x + n.vel.x) * (dt * .5)
-					n.pos.y = n.pushPos.y + (n.pushVel.y + n.vel.y) * (dt * .5)
-					n.pos.z = n.pushPos.z + (n.pushVel.z + n.vel.z) * (dt * .5)
+					npos.x = n.pushPos.x + (n.pushVel.x + n.vel.x) * (dt * .5)
+					npos.y = n.pushPos.y + (n.pushVel.y + n.vel.y) * (dt * .5)
+					npos.z = n.pushPos.z + (n.pushVel.z + n.vel.z) * (dt * .5)
 					n.vel.x = n.pushVel.x + (n.pushAcc.x + n.acc.x) * (dt * .5)
 					n.vel.y = n.pushVel.y + (n.pushAcc.y + n.acc.y) * (dt * .5)
 					n.vel.z = n.pushVel.z + (n.pushAcc.z + n.acc.z) * (dt * .5)
+					npos = npos + 1
 				end
 			end
 		end,
@@ -148,10 +168,14 @@ function App:init(args, ...)
 		end
 		return Node{
 			name = tostring(node.name),
+
+			-- only used for init, then copied into vertexGPU.vec:
 			pos = node.pos or vec3f(crand(), crand(), crand()),
+
+			color = node.color or vec3f(1,1,1),
+
 			vel = vec3f(0,0,0),
 			acc = vec3f(0,0,0),
-			color = node.color or vec3f(1,1,1),
 
 			-- integrator helpers
 			pushPos = vec3f(),
@@ -176,15 +200,18 @@ function App:calcAccel()
 		n.acc.x, n.acc.y, n.acc.z = 0, 0, 0
 	end
 
+	local vertexCPU = self.vertexGPU.vec
 	for i=1,#self.nodes-1 do
 		local n = self.nodes[i]
+		local npos = vertexCPU.v + (i-1)
 		for j=i+1,#self.nodes do
 			local n2 = self.nodes[j]
+			local n2pos = vertexCPU.v + (j-1)
 			local pull = pullcoeff
 			-- from n to n2
-			local dx = n2.pos.x - n.pos.x
-			local dy = n2.pos.y - n.pos.y
-			local dz = n2.pos.z - n.pos.z
+			local dx = n2pos.x - npos.x
+			local dy = n2pos.y - npos.y
+			local dz = n2pos.z - npos.z
 			local dist = math.max(math.sqrt(dx*dx + dy*dy + dz*dz), 1e-4)
 
 			local forceScale = dt * (
@@ -212,29 +239,40 @@ function App:initGL(...)
 	self.vertexGPU = GLArrayBuffer{
 		dim = 3,
 		useVec = true,
+		count = #self.nodes,
+		usage = gl.GL_DYNAMIC_DRAW,
 	}
 	do
-		local vertexCPU = self.vertexGPU:beginUpdate()
+		assert.len(self.vertexGPU.vec, #self.nodes)
+		local npos = self.vertexGPU.vec.v + 0
 		for _,n in ipairs(self.nodes) do
-			vertexCPU:emplace_back():set(0,0,0)
+			npos:set(n.pos:unpack())
+			n.pos = nil
+			npos = npos + 1
 		end
-		self.vertexGPU:endUpdate()
+		self.vertexGPU
+			:bind()
+			:updateData()
 	end
 
 	self.colorGPU = GLArrayBuffer{
 		dim = 3,
 		useVec = true,
-		-- TODO allow .count for useVec?
+		count = #self.nodes
 	}
 	-- ... instead of .count I do this ...
 	do
-		local colorCPU = self.colorGPU:beginUpdate()
+		assert.len(self.colorGPU.vec, #self.nodes)
+		local ncolor = self.colorGPU.vec.v + 0
 		for _,n in ipairs(self.nodes) do
-			colorCPU:emplace_back():set(n.color:unpack())
+			ncolor:set(n.color:unpack())
+			n.color = nil
+			ncolor = ncolor + 1
 		end
-		self.colorGPU:endUpdate()
+		self.colorGPU
+			:bind()
+			:updateData()
 	end
-
 
 	self.pointObj = GLSceneObject{
 		program = {
@@ -245,9 +283,13 @@ layout(location=0) in vec3 vertex;
 layout(location=1) in vec3 color;
 out vec3 colorv;
 uniform mat4 mvProjMat;
+uniform float pointSize;
+uniform int hoverNodeIndex;
 void main() {
 	colorv = color;
 	gl_Position = mvProjMat * vec4(vertex, 1.);
+	gl_PointSize = pointSize;
+	if (hoverNodeIndex == gl_VertexID) gl_PointSize += 2.;
 }
 ]],
 			fragmentCode = [[
@@ -323,6 +365,8 @@ end
 local pushDraggingPos = vec3f()
 local pushDraggingVel = vec3f()
 function App:update()
+	local vertexCPU = self.vertexGPU.vec
+
 	if not self.hasFocus then
 		sdl.SDL_Delay(300)
 		return
@@ -332,44 +376,38 @@ function App:update()
 		local integrator = assert.index(integrators, integratorIndex, "unknown integrator")
 
 		local draggingNode = self.draggingNodeIndex and self.nodes[self.draggingNodeIndex]
+		local draggingNodePos = draggingNode and (vertexCPU.v + (self.draggingNodeIndex-1))
 		if draggingNode then
-			pushDraggingPos:set(draggingNode.pos:unpack())
+			pushDraggingPos:set(draggingNodePos:unpack())
 			pushDraggingVel:set(draggingNode.vel:unpack())
 		end
 
 		integrator:update(self)
 
-		-- TODO don't use n.pos , just use vertexCPU
-		-- then TODO use transform feedback buffer for integration
-		local vertexCPU = self.vertexGPU.vec
-		local vertexPtr = vertexCPU.v + 0
+		-- TODO use transform feedback buffer for integration
+		local npos = vertexCPU.v + 0
 		for i,n in ipairs(self.nodes) do
 			n.vel.x = n.vel.x * veldecay	-- decay / bound
 			n.vel.y = n.vel.y * veldecay
 			n.vel.z = n.vel.z * veldecay
-			n.pos.x = n.pos.x * posdecay	-- decay / bound
-			n.pos.y = n.pos.y * posdecay
-			n.pos.z = n.pos.z * posdecay
-			vertexPtr.x, vertexPtr.y, vertexPtr.z = n.pos.x, n.pos.y, n.pos.z
-			vertexPtr = vertexPtr + 1
+			npos.x = npos.x * posdecay	-- decay / bound
+			npos.y = npos.y * posdecay
+			npos.z = npos.z * posdecay
+			npos = npos + 1
 		end
 
 		if draggingNode then
-			draggingNode.pos:set(pushDraggingPos:unpack())
+			draggingNodePos:set(pushDraggingPos:unpack())
 			draggingNode.vel:set(pushDraggingVel:unpack())
 		end
 
 		self.vertexGPU
 			:bind()
-			:updateData(
-				0,
-				ffi.sizeof(vec3f) * #self.nodes,
-				vertexCPU.v)
+			:updateData()
 	end
 
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
 
-	gl.glPointSize(pointsize)
 	gl.glHint(gl.GL_POINT_SMOOTH, gl.GL_NICEST)
 	gl.glHint(gl.GL_LINE_SMOOTH, gl.GL_NICEST)
 	gl.glHint(gl.GL_POLYGON_SMOOTH, gl.GL_NICEST)
@@ -381,6 +419,8 @@ function App:update()
 
 	-- TODO replace this with billboards for nodes
 	self.pointObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+	self.pointObj.uniforms.pointSize = pointSize
+	self.pointObj.uniforms.hoverNodeIndex = (self.hoverNodeIndex or 0) - 1
 	self.pointObj:draw()
 
 	gl.glEnable(gl.GL_BLEND)
@@ -395,15 +435,22 @@ function App:update()
 end
 
 function App:reset()
+	local npos = self.vertexGPU.vec.v + 0
 	for _,n in ipairs(self.nodes) do
-		n.pos:set(crand(), crand(), crand())
+		npos:set(crand(), crand(), crand())
 		n.vel:set(0,0,0)
+		npos = npos + 1
 	end
+	self.vertexGPU
+		:bind()
+		:updateData()
 end
 
 function App:updateGUI()
+	local vertexCPU = self.vertexGPU.vec
+
 	ig.luatableCheckbox('running', _G, 'running')
-	ig.luatableInputFloat('pointsize', _G, 'pointsize')
+	ig.luatableInputFloat('pointSize', _G, 'pointSize')
 	ig.luatableInputFloat('dt', _G, 'dt')
 	ig.luatableInputFloat('pullcoeff', _G, 'pullcoeff')
 	ig.luatableInputFloat('drawcoeff', _G, 'drawcoeff')
@@ -416,13 +463,13 @@ function App:updateGUI()
 		self:reset()
 	end
 
-
 	local mousePos = ig.igGetMousePos()
 	local bestMouseDistSq = math.huge
 	local bestMouseNodeIndex
 
+	local npos = self.vertexGPU.vec.v + 0
 	for i,n in ipairs(self.nodes) do
-		local x, y, z, w = self.view.mvProjMat:mul4x4v4(n.pos:unpack())
+		local x, y, z, w = self.view.mvProjMat:mul4x4v4(npos:unpack())
 		if x >= -w and x <= w
 		and y >= -w and y <= w
 		and z >= -w and z <= w
@@ -465,6 +512,7 @@ function App:updateGUI()
 			ig.igEnd()
 			ig.igPopID()
 		end
+		npos = npos + 1
 	end
 
 	-- if we are over a node then try to drag it
@@ -477,28 +525,27 @@ function App:updateGUI()
 		if self.mouse.deltaPos.x ~= 0
 		or self.mouse.deltaPos.y ~= 0
 		then
+			local hoverNodePos = vertexCPU.v + (self.hoverNodeIndex-1)
 			local dx = self.mouse.deltaPos.x * self.width
 			local dy = self.mouse.deltaPos.y * self.height
-			local dist = (hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
+			local dist = (hoverNodePos - self.view.pos):dot(-self.view.angle:zAxis())
 			local move = self.view.angle:rotate(vec3f(dx,dy,0) * (dist * 2 / self.height))
-			hoverNode.pos.x = hoverNode.pos.x + move.x
-			hoverNode.pos.y = hoverNode.pos.y + move.y
-			hoverNode.pos.z = hoverNode.pos.z + move.z
+			hoverNodePos.x = hoverNodePos.x + move.x
+			hoverNodePos.y = hoverNodePos.y + move.y
+			hoverNodePos.z = hoverNodePos.z + move.z
 			local index0based = self.hoverNodeIndex-1
 			local v = self.vertexGPU.vec.v + index0based
-			v.x, v.y, v.z = hoverNode.pos:unpack()
+			v.x, v.y, v.z = hoverNodePos:unpack()
 			self.vertexGPU
 				:bind()
 				:updateData(
 					ffi.sizeof(vec3f) * index0based,
 					ffi.sizeof(vec3f),
-					self.vertexGPU.vec.v + index0based)
+					vertexCPU.v + index0based)
 			-- ... then drag the current mouse-over node
 			-- ... and don't update any more
 		end
 	else
-		local oldHoverNodeIndex = self.hoverNodeIndex
-
 		-- not dragging? search for new hoverNode
 		self.hoverNodeIndex = nil
 		local mouseDistThreshold = 20
@@ -506,31 +553,6 @@ function App:updateGUI()
 		and bestMouseDistSq < mouseDistThreshold * mouseDistThreshold
 		then
 			self.hoverNodeIndex = bestMouseNodeIndex
-		end
-
-		-- got a new node? update colors
-		if self.hoverNodeIndex ~= oldHoverNodeIndex then
-			if oldHoverNodeIndex then
-				local index0based = oldHoverNodeIndex - 1
-				self.colorGPU.vec.v[index0based]:set(self.nodes[oldHoverNodeIndex].color:unpack())	-- clear hover color
-				self.colorGPU
-					:bind()
-					:updateData(
-						ffi.sizeof(vec3f) * index0based,
-						ffi.sizeof(vec3f),
-						self.colorGPU.vec.v + index0based)
-			end
-			if self.hoverNodeIndex then
-				local index0based = self.hoverNodeIndex - 1
-				-- TODO use thickness for highlight instead of color
-				self.colorGPU.vec.v[index0based]:set(1,1,0)
-				self.colorGPU
-					:bind()
-					:updateData(
-						ffi.sizeof(vec3f) * index0based,
-						ffi.sizeof(vec3f),
-						self.colorGPU.vec.v + index0based)
-			end
 		end
 	end
 end
