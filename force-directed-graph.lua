@@ -26,10 +26,10 @@ pointsize = 3
 dt = .1
 pullcoeff = 1
 drawcoeff = 1
-veldecay = .9
-posdecay = .99
-repel = .1
-restdist = 1
+veldecay = .99
+posdecay = .999
+repel = 1
+restdist = .3
 
 local hoverNode
 
@@ -41,10 +41,7 @@ nodes = {
 	...
 }
 
-weights = {
-	[nodeIndex1] = {[nodeIndex2] = strength, ...},
-	...
-}
+weights = function(nodeIndex1, nodeIndex2) return strength
 --]]
 function App:init(args, ...)
 	self.nodes = table.mapi(args.nodes, function(node)
@@ -64,7 +61,7 @@ function App:init(args, ...)
 			acc = vec3d(0,0,0),
 		}
 	end)
-	self.weights = table(args.weights)
+	self.weights = args.weights
 	return App.super.init(self, args, ...)
 end
 
@@ -72,6 +69,7 @@ function App:calcAccel()
 	for i,n in ipairs(self.nodes) do
 		n.acc = vec3d(0,0,0)
 	end
+
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
@@ -80,10 +78,8 @@ function App:calcAccel()
 				local dist = math.max(diff:length(), 1e-4)
 				--local dir = diff / dist
 
-				local restlen = restdist * self.weights[i][j]
-
-				--local force = dir * (pull * (dist - restlen) - repel / (dist * dist))
-				local force = diff * (dist - restlen ) / dist
+				--local force = dir * (pull * (dist - restdist) - repel / (dist * dist))
+				local force = diff * (dist - restdist) / dist * self.weights(i, j)
 							- diff * repel / (dist * dist)
 
 				n.acc = n.acc + force * dt
@@ -223,9 +219,9 @@ function App:update()
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j
-			and self.weights[i][j] ~= 0
+			and self.weights(i, j) ~= 0
 			then
-				local l = drawcoeff * self.weights[i][j]
+				local l = drawcoeff * self.weights(i, j)
 				colorCPU:emplace_back():set(l,l,l)
 				colorCPU:emplace_back():set(l,l,l)
 				vertexCPU:emplace_back():set(n.pos:unpack())
