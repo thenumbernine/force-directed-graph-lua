@@ -159,8 +159,12 @@ function App:calcAccel()
 				local force = diff * (dist - restdist) / dist * self.weights(i, j)
 							- diff * repel / (dist * dist)
 
-				n.acc = n.acc + force * dt
-				n2.acc = n2.acc - force * dt
+				if i ~= self.hoverNodeIndex then
+					n.acc = n.acc + force * dt
+				end
+				if j ~= self.hoverNodeIndex then
+					n2.acc = n2.acc - force * dt
+				end
 			end
 		end
 	end
@@ -349,7 +353,7 @@ function App:updateGUI()
 
 	local mousePos = ig.igGetMousePos()
 	local bestMouseDistSq = math.huge
-	local bestMouseNode
+	local bestMouseNodeIndex
 
 	for i,n in ipairs(self.nodes) do
 		local x, y, z, w = self.view.mvProjMat:mul4x4v4(n.pos:unpack())
@@ -362,7 +366,7 @@ function App:updateGUI()
 		local distSq = dx*dx + dy*dy
 		if distSq < bestMouseDistSq then
 			bestMouseDistSq = distSq
-			bestMouseNode = n
+			bestMouseNodeIndex = i
 			--print('z', z)
 		end
 
@@ -381,11 +385,11 @@ function App:updateGUI()
 			)
 		)
 
-		if n == self.hoverNode then
+		if i == self.hoverNodeIndex then
 			ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ffff)
 		end
 		ig.igText(n.name)
-		if n == self.hoverNode then
+		if i == self.hoverNodeIndex then
 			ig.igPopStyleColor(1)
 		end
 
@@ -395,48 +399,47 @@ function App:updateGUI()
 
 	-- if we are over a node then try to drag it
 	self.hoverNodeIsDragging = false
-	if self.hoverNode
+	if self.hoverNodeIndex
 	and self.mouse.leftDown
 	then
+		local hoverNode = assert.index(self.nodes, self.hoverNodeIndex)
 		self.hoverNodeIsDragging = true
 		if self.mouse.deltaPos.x ~= 0
 		or self.mouse.deltaPos.y ~= 0
 		then
 			local dx = self.mouse.deltaPos.x * self.width
 			local dy = self.mouse.deltaPos.y * self.height
-			local dist = (self.hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
-			self.hoverNode.pos = self.hoverNode.pos + self.view.angle:rotate(vec3d(dx,dy,0) * (dist * 2 / self.height))
+			local dist = (hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
+			hoverNode.pos = hoverNode.pos + self.view.angle:rotate(vec3d(dx,dy,0) * (dist * 2 / self.height))
 			-- ... then drag the current mouse-over node
 			-- ... and don't update any more
 		end
 	else
-		local oldHoverNode = self.hoverNode
+		local oldHoverNodeIndex = self.hoverNodeIndex
 
 		-- not dragging? search for new hoverNode
-		self.hoverNode = nil
+		self.hoverNodeIndex = nil
 		local mouseDistThreshold = 20
-		if bestMouseNode
+		if bestMouseNodeIndex
 		and bestMouseDistSq < mouseDistThreshold * mouseDistThreshold
 		then
-			self.hoverNode = bestMouseNode
+			self.hoverNodeIndex = bestMouseNodeIndex
 		end
 	
 		-- got a new node? update colors
-		if self.hoverNode ~= oldHoverNode then
+		if self.hoverNodeIndex ~= oldHoverNodeIndex then
 			self.colorGPU:bind()
 			local colorCPU = self.colorGPU.vec
-			local oldIndex = self.nodes:find(oldHoverNode)
-			if oldIndex then
-				oldIndex -= 1
+			if oldHoverNodeIndex then
+				local oldIndex = oldHoverNodeIndex - 1
 				colorCPU.v[oldIndex]:set(1,1,1)	-- clear old
 				self.colorGPU:updateData(
 					ffi.sizeof(vec3f) * oldIndex,
 					ffi.sizeof(vec3f),
 					colorCPU.v + oldIndex)
 			end
-			local newIndex = self.nodes:find(self.hoverNode)
-			if newIndex then
-				newIndex -= 1
+			if self.hoverNodeIndex then
+				local newIndex = self.hoverNodeIndex - 1
 				colorCPU.v[newIndex]:set(1,1,0)
 				self.colorGPU:updateData(
 					ffi.sizeof(vec3f) * newIndex,
