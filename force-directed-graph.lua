@@ -394,6 +394,11 @@ void main() {
 	}
 
 --[==[ transform-feedback pingpong
+	self.accGPU = GLArrayBuffer{
+		dim = 3,
+		useVec = true,
+		count = #self.nodes,
+	}
 	self.newPosGPU = GLArrayBuffer{
 		dim = 3,
 		useVec = true,
@@ -404,14 +409,35 @@ void main() {
 		useVec = true,
 		count = #self.nodes,
 	}
+	self.calcForceProgram = GLProgram{
+		version = 'latest',
+		precision = 'best',
+		vertexCode = [[
+layout(location=0) in vec3 pos;
+layout(location=1) in vec3 vel;
+layout(location=0) out vec3 acc;
+void main() {
+	acc = vec3(0., 0., 0.);
+
+#error TODO how to encode the graph sparse matrix
+}
+]],
+	}:unbind()
+
 	self.integrateEulerProgram = GLProgram{
 		version = 'latest',
 		precision = 'best',
 		vertexCode = [[
 location(layout=0) in vec3 pos;
 location(layout=1) in vec3 vel;
+location(layout=2) in vec3 acc;
 location(layout=0) out vec3 newPos;
 location(layout=1) out vec3 newVel;
+uniform float dt;
+void main() {
+	newPos = pos + vel * dt;
+	newVel = vel + acc * dt;
+}
 ]],
 		transformFeedback = {
 			'newPos',
@@ -419,6 +445,9 @@ location(layout=1) out vec3 newVel;
 			mode = 'separate',
 		},
 	}:unbind()
+
+	-- TODO this when you run it
+	--self.integrateEulerProgram.uniforms.dt = dt
 
 	self.integrateEulerVAO = GLVertexArray{
 		program = self.integrateEulerProgram,
@@ -428,6 +457,9 @@ location(layout=1) out vec3 newVel;
 			},
 			vel = {
 				buffer = self.velGPU,
+			},
+			acc = {
+				buffer = self.accGPU,
 			},
 		},
 	}
