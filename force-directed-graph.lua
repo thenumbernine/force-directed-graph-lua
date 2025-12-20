@@ -484,6 +484,15 @@ function App:updateGUI()
 			hoverNode.pos.x = hoverNode.pos.x + move.x
 			hoverNode.pos.y = hoverNode.pos.y + move.y
 			hoverNode.pos.z = hoverNode.pos.z + move.z
+			local index0based = self.hoverNodeIndex-1
+			local v = self.vertexGPU.vec.v + index0based
+			v.x, v.y, v.z = hoverNode.pos:unpack()
+			self.vertexGPU
+				:bind()
+				:updateData(
+					ffi.sizeof(vec3f) * index0based,
+					ffi.sizeof(vec3f),
+					self.vertexGPU.vec.v + index0based)
 			-- ... then drag the current mouse-over node
 			-- ... and don't update any more
 		end
@@ -501,24 +510,26 @@ function App:updateGUI()
 
 		-- got a new node? update colors
 		if self.hoverNodeIndex ~= oldHoverNodeIndex then
-			self.colorGPU:bind()
-			local colorCPU = self.colorGPU.vec
 			if oldHoverNodeIndex then
-				local oldIndex = oldHoverNodeIndex - 1
-				colorCPU.v[oldIndex]:set(self.nodes[oldHoverNodeIndex].color:unpack())	-- clear hover color
-				self.colorGPU:updateData(
-					ffi.sizeof(vec3f) * oldIndex,
-					ffi.sizeof(vec3f),
-					colorCPU.v + oldIndex)
+				local index0based = oldHoverNodeIndex - 1
+				self.colorGPU.vec.v[index0based]:set(self.nodes[oldHoverNodeIndex].color:unpack())	-- clear hover color
+				self.colorGPU
+					:bind()
+					:updateData(
+						ffi.sizeof(vec3f) * index0based,
+						ffi.sizeof(vec3f),
+						self.colorGPU.vec.v + index0based)
 			end
 			if self.hoverNodeIndex then
-				local newIndex = self.hoverNodeIndex - 1
+				local index0based = self.hoverNodeIndex - 1
 				-- TODO use thickness for highlight instead of color
-				colorCPU.v[newIndex]:set(1,1,0)
-				self.colorGPU:updateData(
-					ffi.sizeof(vec3f) * newIndex,
-					ffi.sizeof(vec3f),
-					colorCPU.v + newIndex)
+				self.colorGPU.vec.v[index0based]:set(1,1,0)
+				self.colorGPU
+					:bind()
+					:updateData(
+						ffi.sizeof(vec3f) * index0based,
+						ffi.sizeof(vec3f),
+						self.colorGPU.vec.v + index0based)
 			end
 		end
 	end
