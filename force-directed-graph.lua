@@ -231,10 +231,16 @@ function App:calcAccel()
 			local dz = n2pos.z - npos.z
 			local dist = math.max(math.sqrt(dx*dx + dy*dy + dz*dz), 1e-4)
 
-			local forceScale = dt * (
-				(dist - restdist) / dist * self.weights(i, j)
-				- repel / (dist * dist)
-			)
+			local forceScale = -repel / (dist * dist)
+			local w = self.weights(i,j)
+			-- what should 'w' influence?
+			-- rest-distance?
+			-- force?
+			-- both?
+			if w ~= 0 then
+				forceScale = forceScale + (1 - restdist / dist) * w
+			end
+			forceScale = forceScale * dt
 			local fx = dx * forceScale
 			local fy = dy * forceScale
 			local fz = dz * forceScale
