@@ -143,19 +143,15 @@ weights = function(nodeIndex1, nodeIndex2) return strength
 --]]
 function App:init(args, ...)
 	self.nodes = table.mapi(args.nodes, function(node)
-		local name, pos
-		if type(node) == 'table' then
-			name = node.name
-			pos = node.pos
-		else
-			name = tostring(node)
-			pos = vec3f(crand(), crand(), crand())
+		if type(node) == 'string' then
+			node = {name = node}
 		end
 		return Node{
-			name = tostring(name),
-			pos = pos,
+			name = tostring(node.name),
+			pos = node.pos or vec3f(crand(), crand(), crand()),
 			vel = vec3f(0,0,0),
 			acc = vec3f(0,0,0),
+			color = node.color or vec3f(1,1,1),
 
 			-- integrator helpers
 			pushPos = vec3f(),
@@ -234,7 +230,7 @@ function App:initGL(...)
 	do
 		local colorCPU = self.colorGPU:beginUpdate()
 		for _,n in ipairs(self.nodes) do
-			colorCPU:emplace_back():set(1,1,1)
+			colorCPU:emplace_back():set(n.color:unpack())
 		end
 		self.colorGPU:endUpdate()
 	end
@@ -509,7 +505,7 @@ function App:updateGUI()
 			local colorCPU = self.colorGPU.vec
 			if oldHoverNodeIndex then
 				local oldIndex = oldHoverNodeIndex - 1
-				colorCPU.v[oldIndex]:set(1,1,1)	-- clear old
+				colorCPU.v[oldIndex]:set(self.nodes[oldHoverNodeIndex].color:unpack())	-- clear hover color
 				self.colorGPU:updateData(
 					ffi.sizeof(vec3f) * oldIndex,
 					ffi.sizeof(vec3f),
@@ -517,6 +513,7 @@ function App:updateGUI()
 			end
 			if self.hoverNodeIndex then
 				local newIndex = self.hoverNodeIndex - 1
+				-- TODO use thickness for highlight instead of color
 				colorCPU.v[newIndex]:set(1,1,0)
 				self.colorGPU:updateData(
 					ffi.sizeof(vec3f) * newIndex,
