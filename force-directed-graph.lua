@@ -331,37 +331,49 @@ function App:updateGUI()
 				ig.ImGuiWindowFlags_Tooltip
 			)
 		)
+
+		if n == self.hoverNode then
+			ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ffff)
+		end
 		ig.igText(n.name)
+		if n == self.hoverNode then
+			ig.igPopStyleColor(1)
+		end
+
 		ig.igEnd()
 		ig.igPopID()
 	end
 
-	-- if we're not dragging then search for a new node
-	if not self.hoverNodeIsDragging then
+	-- if we are over a node then try to drag it
+	self.hoverNodeIsDragging = false
+	if self.hoverNode
+	and self.mouse.leftDown
+	then
+		self.hoverNodeIsDragging = true
+		if self.mouse.deltaPos.x ~= 0
+		or self.mouse.deltaPos.y ~= 0
+		then
+			local dx = self.mouse.deltaPos.x * self.width
+			local dy = self.mouse.deltaPos.y * self.height
+			local dist = (self.hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
+			self.hoverNode.pos = self.hoverNode.pos + self.view.angle:rotate(vec3d(dx,dy,0) * (dist * 2 / self.height))
+			-- ... then drag the current mouse-over node
+			-- ... and don't update any more
+		end
+	else
+		-- not dragging? search for new hoverNode
 		self.hoverNode = nil
 		local mouseDistThreshold = 20
-		if bestMouseNode and bestMouseDistSq < mouseDistThreshold * mouseDistThreshold then
+		if bestMouseNode
+		and bestMouseDistSq < mouseDistThreshold * mouseDistThreshold
+		then
 			self.hoverNode = bestMouseNode
 		end
 	end
 end
 
 function App:mouseDownEvent(...)
-	local dx, dy, shiftDown, guiDown, altDown, x, y = ...
-
-	-- if we are over a node then try to drag it
-	if self.hoverNode then
-		self.hoverNodeIsDragging = nil
-		if self.mouse.leftDown then
-			self.hoverNodeIsDragging = true
-			local dist = (self.hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
-			self.hoverNode.pos = self.hoverNode.pos + self.view.angle:rotate(vec3d(dx,-dy,0) * (dist * 2 / self.height))
-			-- ... then drag the current mouse-over node
-			-- ... and don't update any more
-			return
-		end
-	end
-
+	if self.hoverNodeIsDragging then return end
 	return App.super.mouseDownEvent(self, ...)
 end
 
