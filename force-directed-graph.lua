@@ -5,6 +5,7 @@ local gl = require 'gl'
 local GLArrayBuffer = require 'gl.arraybuffer'
 local GLElementArrayBuffer = require 'gl.elementarraybuffer'
 local GLProgram = require 'gl.program'
+local GLVertexArray = require 'gl.vertexarray'
 local GLSceneObject = require 'gl.sceneobject'
 local sdl = require 'sdl'
 local ig = require 'imgui'
@@ -39,16 +40,18 @@ local integrators = table{
 	{
 		name = 'F.E.',
 		update = function(integrator, app)
-			local npos = app.posGPU.vec.v + 0
 			app:calcAccel()
+			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for i,n in ipairs(app.nodes) do
-				npos.x = npos.x + n.vel.x * dt
-				npos.y = npos.y + n.vel.y * dt
-				npos.z = npos.z + n.vel.z * dt
-				n.vel.x = n.vel.x + n.acc.x * dt
-				n.vel.y = n.vel.y + n.acc.y * dt
-				n.vel.z = n.vel.z + n.acc.z * dt
+				npos.x = npos.x + nvel.x * dt
+				npos.y = npos.y + nvel.y * dt
+				npos.z = npos.z + nvel.z * dt
+				nvel.x = nvel.x + n.acc.x * dt
+				nvel.y = nvel.y + n.acc.y * dt
+				nvel.z = nvel.z + n.acc.z * dt
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 		end,
 	},
@@ -56,66 +59,76 @@ local integrators = table{
 		name = 'RK4',
 		update = function(integrator, app)
 			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
-				n.pushVel.x, n.pushVel.y, n.pushVel.z = n.vel.x, n.vel.y, n.vel.z
+				n.pushVel.x, n.pushVel.y, n.pushVel.z = nvel.x, nvel.y, nvel.z
 				n.pushPos.x, n.pushPos.y, n.pushPos.z = npos.x, npos.y, npos.z
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 
 			app:calcAccel()
 			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k1a.x, n.k1a.y, n.k1a.z = n.acc.x, n.acc.y, n.acc.z
-				n.k1v.x, n.k1v.y, n.k1v.z = n.vel.x, n.vel.y, n.vel.z
-				n.vel.x = n.pushVel.x + n.k1a.x * dt * .5
-				n.vel.y = n.pushVel.y + n.k1a.y * dt * .5
-				n.vel.z = n.pushVel.z + n.k1a.z * dt * .5
+				n.k1v.x, n.k1v.y, n.k1v.z = nvel.x, nvel.y, nvel.z
+				nvel.x = n.pushVel.x + n.k1a.x * dt * .5
+				nvel.y = n.pushVel.y + n.k1a.y * dt * .5
+				nvel.z = n.pushVel.z + n.k1a.z * dt * .5
 				npos.x = n.pushPos.x + n.k1v.x * dt * .5
 				npos.y = n.pushPos.y + n.k1v.y * dt * .5
 				npos.z = n.pushPos.z + n.k1v.z * dt * .5
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 
 			app:calcAccel()
 			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k2a.x, n.k2a.y, n.k2a.z = n.acc.x, n.acc.y, n.acc.z
-				n.k2v.x, n.k2v.y, n.k2v.z = n.vel.x, n.vel.y, n.vel.z
-				n.vel.x = n.pushVel.x + n.k2a.x * dt * .5
-				n.vel.y = n.pushVel.y + n.k2a.y * dt * .5
-				n.vel.z = n.pushVel.z + n.k2a.z * dt * .5
+				n.k2v.x, n.k2v.y, n.k2v.z = nvel.x, nvel.y, nvel.z
+				nvel.x = n.pushVel.x + n.k2a.x * dt * .5
+				nvel.y = n.pushVel.y + n.k2a.y * dt * .5
+				nvel.z = n.pushVel.z + n.k2a.z * dt * .5
 				npos.x = n.pushPos.x + n.k2v.x * dt * .5
 				npos.y = n.pushPos.y + n.k2v.y * dt * .5
 				npos.z = n.pushPos.z + n.k2v.z * dt * .5
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 
 			app:calcAccel()
 			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k3a.x, n.k3a.y, n.k3a.z = n.acc.x, n.acc.y, n.acc.z
-				n.k3v.x, n.k3v.y, n.k3v.z = n.vel.x, n.vel.y, n.vel.z
-				n.vel.x = n.pushVel.x + n.k3a.x * dt
-				n.vel.y = n.pushVel.y + n.k3a.y * dt
-				n.vel.z = n.pushVel.z + n.k3a.z * dt
+				n.k3v.x, n.k3v.y, n.k3v.z = nvel.x, nvel.y, nvel.z
+				nvel.x = n.pushVel.x + n.k3a.x * dt
+				nvel.y = n.pushVel.y + n.k3a.y * dt
+				nvel.z = n.pushVel.z + n.k3a.z * dt
 				npos.x = n.pushPos.x + n.k3v.x * dt
 				npos.y = n.pushPos.y + n.k3v.y * dt
 				npos.z = n.pushPos.z + n.k3v.z * dt
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 
 			app:calcAccel()
 			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
 				n.k4a.x, n.k4a.y, n.k4a.z = n.acc.x, n.acc.y, n.acc.z
-				n.k4v.x, n.k4v.y, n.k4v.z = n.vel.x, n.vel.y, n.vel.z
-				n.vel.x = n.pushVel.x + (n.k1a.x + n.k2a.x * 2 + n.k3a.x * 2 + n.k4a.x) / 6 * dt
-				n.vel.y = n.pushVel.y + (n.k1a.y + n.k2a.y * 2 + n.k3a.y * 2 + n.k4a.y) / 6 * dt
-				n.vel.z = n.pushVel.z + (n.k1a.z + n.k2a.z * 2 + n.k3a.z * 2 + n.k4a.z) / 6 * dt
+				n.k4v.x, n.k4v.y, n.k4v.z = nvel.x, nvel.y, nvel.z
+				nvel.x = n.pushVel.x + (n.k1a.x + n.k2a.x * 2 + n.k3a.x * 2 + n.k4a.x) / 6 * dt
+				nvel.y = n.pushVel.y + (n.k1a.y + n.k2a.y * 2 + n.k3a.y * 2 + n.k4a.y) / 6 * dt
+				nvel.z = n.pushVel.z + (n.k1a.z + n.k2a.z * 2 + n.k3a.z * 2 + n.k4a.z) / 6 * dt
 				npos.x = n.pushPos.x + (n.k1v.x + n.k2v.x * 2 + n.k3v.x * 2 + n.k4v.x) / 6 * dt
 				npos.y = n.pushPos.y + (n.k1v.y + n.k2v.y * 2 + n.k3v.y * 2 + n.k4v.y) / 6 * dt
 				npos.z = n.pushPos.z + (n.k1v.z + n.k2v.z * 2 + n.k3v.z * 2 + n.k4v.z) / 6 * dt
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 		end,
 	},
@@ -124,23 +137,27 @@ local integrators = table{
 		update = function(integrator, app)
 			app:calcAccel()
 			local npos = app.posGPU.vec.v + 0
+			local nvel = app.velGPU.vec.v + 0
 			for _,n in ipairs(app.nodes) do
-				n.pushVel.x, n.pushVel.y, n.pushVel.z = n.vel.x, n.vel.y, n.vel.z
+				n.pushVel.x, n.pushVel.y, n.pushVel.z = nvel.x, nvel.y, nvel.z
 				n.pushPos.x, n.pushPos.y, n.pushPos.z = npos.x, npos.y, npos.z
 				n.pushAcc.x, n.pushAcc.y, n.pushAcc.z = n.acc.x, n.acc.y, n.acc.z
 				npos = npos + 1
+				nvel = nvel + 1
 			end
 			for iter=1,30 do
 				app:calcAccel()
 				local npos = app.posGPU.vec.v + 0
+				local nvel = app.velGPU.vec.v + 0
 				for _,n in ipairs(app.nodes) do
-					npos.x = n.pushPos.x + (n.pushVel.x + n.vel.x) * (dt * .5)
-					npos.y = n.pushPos.y + (n.pushVel.y + n.vel.y) * (dt * .5)
-					npos.z = n.pushPos.z + (n.pushVel.z + n.vel.z) * (dt * .5)
-					n.vel.x = n.pushVel.x + (n.pushAcc.x + n.acc.x) * (dt * .5)
-					n.vel.y = n.pushVel.y + (n.pushAcc.y + n.acc.y) * (dt * .5)
-					n.vel.z = n.pushVel.z + (n.pushAcc.z + n.acc.z) * (dt * .5)
+					npos.x = n.pushPos.x + (n.pushVel.x + nvel.x) * (dt * .5)
+					npos.y = n.pushPos.y + (n.pushVel.y + nvel.y) * (dt * .5)
+					npos.z = n.pushPos.z + (n.pushVel.z + nvel.z) * (dt * .5)
+					nvel.x = n.pushVel.x + (n.pushAcc.x + n.acc.x) * (dt * .5)
+					nvel.y = n.pushVel.y + (n.pushAcc.y + n.acc.y) * (dt * .5)
+					nvel.z = n.pushVel.z + (n.pushAcc.z + n.acc.z) * (dt * .5)
 					npos = npos + 1
+					nvel = nvel + 1
 				end
 			end
 		end,
@@ -175,7 +192,6 @@ function App:init(args, ...)
 
 			color = node.color or vec3f(1,1,1),
 
-			vel = vec3f(0,0,0),
 			acc = vec3f(0,0,0),
 
 			-- integrator helpers
@@ -236,8 +252,6 @@ end
 function App:initGL(...)
 	App.super.initGL(self, ...)
 
-	-- TODO interleave attrs or nah?
-	-- TODO no need for .useVec since we're not resizing it ... or will we later?
 	self.posGPU = GLArrayBuffer{
 		dim = 3,
 		useVec = true,
@@ -257,12 +271,28 @@ function App:initGL(...)
 			:updateData()
 	end
 
+	self.velGPU = GLArrayBuffer{
+		dim = 3,
+		useVec = true,
+		count = #self.nodes,
+	}
+	do
+		assert.len(self.velGPU.vec, #self.nodes)
+		local nvel = self.velGPU.vec.v + 0
+		for _,n in ipairs(self.nodes) do
+			nvel:set(0,0,0)
+			nvel = nvel + 1
+		end
+		self.velGPU
+			:bind()
+			:updateData()
+	end
+
 	self.colorGPU = GLArrayBuffer{
 		dim = 3,
 		useVec = true,
 		count = #self.nodes
 	}
-	-- ... instead of .count I do this ...
 	do
 		assert.len(self.colorGPU.vec, #self.nodes)
 		local ncolor = self.colorGPU.vec.v + 0
@@ -364,11 +394,6 @@ void main() {
 	}
 
 --[==[ transform-feedback pingpong
-	self.velGPU = GLArrayBuffer{
-		dim = 3,
-		useVec = true,
-		count = #self.nodes,
-	}
 	self.newPosGPU = GLArrayBuffer{
 		dim = 3,
 		useVec = true,
@@ -393,6 +418,10 @@ location(layout=1) out vec3 newVel;
 			'newVel',
 			mode = 'separate',
 		},
+	}:unbind()
+
+	self.integrateEulerVAO = GLVertexArray{
+		program = self.integrateEulerProgram,
 		attrs = {
 			pos = {
 				buffer = self.posGPU,
@@ -401,7 +430,7 @@ location(layout=1) out vec3 newVel;
 				buffer = self.velGPU,
 			},
 		},
-	}:unbind()
+	}
 --]==]
 end
 
@@ -409,6 +438,7 @@ local pushDraggingPos = vec3f()
 local pushDraggingVel = vec3f()
 function App:update()
 	local posCPU = self.posGPU.vec
+	local velCPU = self.velGPU.vec
 
 	if not self.hasFocus then
 		sdl.SDL_Delay(300)
@@ -420,28 +450,31 @@ function App:update()
 
 		local draggingNode = self.draggingNodeIndex and self.nodes[self.draggingNodeIndex]
 		local draggingNodePos = draggingNode and (posCPU.v + (self.draggingNodeIndex-1))
+		local draggingNodeVel = draggingNode and (velCPU.v + (self.draggingNodeIndex-1))
 		if draggingNode then
 			pushDraggingPos:set(draggingNodePos:unpack())
-			pushDraggingVel:set(draggingNode.vel:unpack())
+			pushDraggingVel:set(draggingNodeVel:unpack())
 		end
 
 		integrator:update(self)
 
 		-- TODO use transform feedback buffer for integration
 		local npos = posCPU.v + 0
+		local nvel = velCPU.v + 0
 		for i,n in ipairs(self.nodes) do
-			n.vel.x = n.vel.x * veldecay	-- decay / bound
-			n.vel.y = n.vel.y * veldecay
-			n.vel.z = n.vel.z * veldecay
+			nvel.x = nvel.x * veldecay	-- decay / bound
+			nvel.y = nvel.y * veldecay
+			nvel.z = nvel.z * veldecay
 			npos.x = npos.x * posdecay	-- decay / bound
 			npos.y = npos.y * posdecay
 			npos.z = npos.z * posdecay
 			npos = npos + 1
+			nvel = nvel + 1
 		end
 
 		if draggingNode then
 			draggingNodePos:set(pushDraggingPos:unpack())
-			draggingNode.vel:set(pushDraggingVel:unpack())
+			draggingNodeVel:set(pushDraggingVel:unpack())
 		end
 
 		self.posGPU
@@ -479,10 +512,12 @@ end
 
 function App:reset()
 	local npos = self.posGPU.vec.v + 0
+	local nvel = self.velGPU.vec.v + 0
 	for _,n in ipairs(self.nodes) do
 		npos:set(crand(), crand(), crand())
-		n.vel:set(0,0,0)
+		nvel:set(0,0,0)
 		npos = npos + 1
+		nvel = nvel + 1
 	end
 	self.posGPU
 		:bind()
