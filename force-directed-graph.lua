@@ -42,8 +42,12 @@ local integrators = table{
 		update = function(integrator, app)
 			app:calcAccel()
 			for _,n in ipairs(app.nodes) do
-				n.pos = n.pos + n.vel * dt
-				n.vel = n.vel + n.acc * dt
+				n.pos.x = n.pos.x + n.vel.x * dt
+				n.pos.y = n.pos.y + n.vel.y * dt
+				n.pos.z = n.pos.z + n.vel.z * dt
+				n.vel.x = n.vel.x + n.acc.x * dt
+				n.vel.y = n.vel.y + n.acc.y * dt
+				n.vel.z = n.vel.z + n.acc.z * dt
 			end
 		end,
 	},
@@ -51,36 +55,52 @@ local integrators = table{
 		name = 'RK4',
 		update = function(integrator, app)
 			for _,n in ipairs(app.nodes) do
-				n.pushVel = vec3d(n.vel:unpack())
-				n.pushPos = vec3d(n.pos:unpack())
+				n.pushVel.x, n.pushVel.y, n.pushVel.z = n.vel.x, n.vel.y, n.vel.z
+				n.pushPos.x, n.pushPos.y, n.pushPos.z = n.pos.x, n.pos.y, n.pos.z
 			end
 			app:calcAccel()
 			for _,n in ipairs(app.nodes) do
-				n.k1a = vec3d(n.acc:unpack())
-				n.k1v = vec3d(n.vel:unpack())
-				n.vel = n.pushVel + n.k1a * dt/2
-				n.pos = n.pushPos + n.k1v * dt/2
+				n.k1a.x, n.k1a.y, n.k1a.z = n.acc.x, n.acc.y, n.acc.z
+				n.k1v.x, n.k1v.y, n.k1v.z = n.vel.x, n.vel.y, n.vel.z
+				n.vel.x = n.pushVel.x + n.k1a.x * dt * .5
+				n.vel.y = n.pushVel.y + n.k1a.y * dt * .5
+				n.vel.z = n.pushVel.z + n.k1a.z * dt * .5
+				n.pos.x = n.pushPos.x + n.k1v.x * dt * .5
+				n.pos.y = n.pushPos.y + n.k1v.y * dt * .5
+				n.pos.z = n.pushPos.z + n.k1v.z * dt * .5
 			end
 			app:calcAccel()
 			for _,n in ipairs(app.nodes) do
-				n.k2a = vec3d(n.acc:unpack())
-				n.k2v = vec3d(n.vel:unpack())
-				n.vel = n.pushVel + n.k2a * dt/2
-				n.pos = n.pushPos + n.k2v * dt/2
+				n.k2a.x, n.k2a.y, n.k2a.z = n.acc.x, n.acc.y, n.acc.z
+				n.k2v.x, n.k2v.y, n.k2v.z = n.vel.x, n.vel.y, n.vel.z
+				n.vel.x = n.pushVel.x + n.k2a.x * dt * .5
+				n.vel.y = n.pushVel.y + n.k2a.y * dt * .5
+				n.vel.z = n.pushVel.z + n.k2a.z * dt * .5
+				n.pos.x = n.pushPos.x + n.k2v.x * dt * .5
+				n.pos.y = n.pushPos.y + n.k2v.y * dt * .5
+				n.pos.z = n.pushPos.z + n.k2v.z * dt * .5
 			end
 			app:calcAccel()
 			for _,n in ipairs(app.nodes) do
-				n.k3a = vec3d(n.acc:unpack())
-				n.k3v = vec3d(n.vel:unpack())
-				n.vel = n.pushVel + n.k3a * dt
-				n.pos = n.pushPos + n.k3v * dt
+				n.k3a.x, n.k3a.y, n.k3a.z = n.acc.x, n.acc.y, n.acc.z
+				n.k3v.x, n.k3v.y, n.k3v.z = n.vel.x, n.vel.y, n.vel.z
+				n.vel.x = n.pushVel.x + n.k3a.x * dt
+				n.vel.y = n.pushVel.y + n.k3a.y * dt
+				n.vel.z = n.pushVel.z + n.k3a.z * dt
+				n.pos.x = n.pushPos.x + n.k3v.x * dt
+				n.pos.y = n.pushPos.y + n.k3v.y * dt
+				n.pos.z = n.pushPos.z + n.k3v.z * dt
 			end
 			app:calcAccel()
 			for _,n in ipairs(app.nodes) do
-				n.k4a = vec3d(n.acc:unpack())
-				n.k4v = vec3d(n.vel:unpack())
-				n.vel = n.pushVel + (n.k1a + n.k2a * 2 + n.k3a * 2 + n.k4a) / 6 * dt
-				n.pos = n.pushPos + (n.k3v + n.k2v * 2 + n.k3v * 2 + n.k4v) / 6 * dt
+				n.k4a.x, n.k4a.y, n.k4a.z = n.acc.x, n.acc.y, n.acc.z
+				n.k4v.x, n.k4v.y, n.k4v.z = n.vel.x, n.vel.y, n.vel.z
+				n.vel.x = n.pushVel.x + (n.k1a.x + n.k2a.x * 2 + n.k3a.x * 2 + n.k4a.x) / 6 * dt
+				n.vel.y = n.pushVel.y + (n.k1a.y + n.k2a.y * 2 + n.k3a.y * 2 + n.k4a.y) / 6 * dt
+				n.vel.z = n.pushVel.z + (n.k1a.z + n.k2a.z * 2 + n.k3a.z * 2 + n.k4a.z) / 6 * dt
+				n.pos.x = n.pushPos.x + (n.k1v.x + n.k2v.x * 2 + n.k3v.x * 2 + n.k4v.x) / 6 * dt
+				n.pos.y = n.pushPos.y + (n.k1v.y + n.k2v.y * 2 + n.k3v.y * 2 + n.k4v.y) / 6 * dt
+				n.pos.z = n.pushPos.z + (n.k1v.z + n.k2v.z * 2 + n.k3v.z * 2 + n.k4v.z) / 6 * dt
 			end
 		end,
 	},
@@ -89,15 +109,19 @@ local integrators = table{
 		update = function(integrator, app)
 			app:calcAccel()
 			for _,n in ipairs(app.nodes) do
-				n.pushVel = vec3d(n.vel:unpack())
-				n.pushPos = vec3d(n.pos:unpack())
-				n.pushAcc = vec3d(n.acc:unpack())
+				n.pushVel.x, n.pushVel.y, n.pushVel.z = n.vel.x, n.vel.y, n.vel.z
+				n.pushPos.x, n.pushPos.y, n.pushPos.z = n.pos.x, n.pos.y, n.pos.z
+				n.pushAcc.x, n.pushAcc.y, n.pushAcc.z = n.acc.x, n.acc.y, n.acc.z
 			end
 			for iter=1,30 do
 				app:calcAccel()
 				for _,n in ipairs(app.nodes) do
-					n.pos = n.pushPos + (.5 * dt) * (n.pushVel + n.vel)
-					n.vel = n.pushVel + (.5 * dt) * (n.pushAcc + n.acc)
+					n.pos.x = n.pushPos.x + (n.pushVel.x + n.vel.x) * (dt * .5)
+					n.pos.y = n.pushPos.y + (n.pushVel.y + n.vel.y) * (dt * .5)
+					n.pos.z = n.pushPos.z + (n.pushVel.z + n.vel.z) * (dt * .5)
+					n.vel.x = n.pushVel.x + (n.pushAcc.x + n.acc.x) * (dt * .5)
+					n.vel.y = n.pushVel.y + (n.pushAcc.y + n.acc.y) * (dt * .5)
+					n.vel.z = n.pushVel.z + (n.pushAcc.z + n.acc.z) * (dt * .5)
 				end
 			end
 		end,
@@ -132,9 +156,22 @@ function App:init(args, ...)
 		return Node{
 			name = tostring(name),
 			pos = pos,
-			screenpos = vec4d(),
+			screenPos = vec4d(),
 			vel = vec3d(0,0,0),
 			acc = vec3d(0,0,0),
+
+			-- integrator helpers
+			pushPos = vec3d(),
+			pushVel = vec3d(),
+			pushAcc = vec3d(),
+			k1a = vec3d(),
+			k1v = vec3d(),
+			k2a = vec3d(),
+			k2v = vec3d(),
+			k3a = vec3d(),
+			k3v = vec3d(),
+			k4a = vec3d(),
+			k4v = vec3d(),
 		}
 	end)
 	self.weights = args.weights
@@ -143,28 +180,37 @@ end
 
 function App:calcAccel()
 	for i,n in ipairs(self.nodes) do
-		n.acc = vec3d(0,0,0)
+		n.acc.x, n.acc.y, n.acc.z = 0, 0, 0
 	end
 
-	-- TODO predictor-corrector here, i.e. lazy implicit solver
-	for i,n in ipairs(self.nodes) do
-		for j,n2 in ipairs(self.nodes) do
-			if i ~= j then
-				local pull = pullcoeff
-				local diff = n2.pos - n.pos	-- from n to n2
-				local dist = math.max(diff:length(), 1e-4)
-				--local dir = diff / dist
+	for i=1,#self.nodes-1 do
+		local n = self.nodes[i]
+		for j=i+1,#self.nodes do
+			local n2 = self.nodes[j]
+			local pull = pullcoeff
+			-- from n to n2
+			local dx = n2.pos.x - n.pos.x
+			local dy = n2.pos.y - n.pos.y
+			local dz = n2.pos.z - n.pos.z
+			local dist = math.max(math.sqrt(dx*dx + dy*dy + dz*dz), 1e-4)
 
-				--local force = dir * (pull * (dist - restdist) - repel / (dist * dist))
-				local force = diff * (dist - restdist) / dist * self.weights(i, j)
-							- diff * repel / (dist * dist)
+			local forceScale = dt * (
+				(dist - restdist) / dist * self.weights(i, j)
+				- repel / (dist * dist)
+			)
+			local fx = dx * forceScale
+			local fy = dy * forceScale
+			local fz = dz * forceScale
 
-				if i ~= self.hoverNodeIndex then
-					n.acc = n.acc + force * dt
-				end
-				if j ~= self.hoverNodeIndex then
-					n2.acc = n2.acc - force * dt
-				end
+			if i ~= self.draggingNodeIndex then
+				n.acc.x = n.acc.x + fx
+				n.acc.y = n.acc.y + fy
+				n.acc.z = n.acc.z + fz
+			end
+			if j ~= self.draggingNodeIndex then
+				n2.acc.x = n2.acc.x - fx
+				n2.acc.y = n2.acc.y - fy
+				n2.acc.z = n2.acc.z - fz
 			end
 		end
 	end
@@ -178,6 +224,13 @@ function App:initGL(...)
 		dim = 3,
 		useVec = true,
 	}
+	do
+		local vertexCPU = self.vertexGPU:beginUpdate()
+		for _,n in ipairs(self.nodes) do
+			vertexCPU:emplace_back():set(0,0,0)
+		end
+		self.vertexGPU:endUpdate()
+	end
 
 	self.colorGPU = GLArrayBuffer{
 		dim = 3,
@@ -192,7 +245,7 @@ function App:initGL(...)
 		end
 		self.colorGPU:endUpdate()
 	end
-	
+
 
 	self.pointObj = GLSceneObject{
 		program = {
@@ -287,18 +340,26 @@ function App:update()
 	if running then
 		local integrator = assert.index(integrators, integratorIndex, "unknown integrator")
 		integrator:update(self)
+
+		local vertexCPU = self.vertexGPU.vec
+		local vertexPtr = vertexCPU.v + 0
 		for _,n in ipairs(self.nodes) do
-			n.vel = n.vel * veldecay	-- decay / bound
-			n.pos = n.pos * posdecay	-- decay / bound
+			n.vel.x = n.vel.x * veldecay	-- decay / bound
+			n.vel.y = n.vel.y * veldecay
+			n.vel.z = n.vel.z * veldecay
+			n.pos.x = n.pos.x * posdecay	-- decay / bound
+			n.pos.y = n.pos.y * posdecay
+			n.pos.z = n.pos.z * posdecay
+			vertexPtr.x, vertexPtr.y, vertexPtr.z = n.pos.x, n.pos.y, n.pos.z
+			vertexPtr = vertexPtr + 1
 		end
-	
-		local vertexGPU = self.vertexGPU
-		local vertexCPU = vertexGPU:beginUpdate()
-		for _,n in ipairs(self.nodes) do
-			local v = vertexCPU:emplace_back()
-			v.x, v.y, v.z = n.pos:unpack()
-		end
-		vertexGPU:endUpdate()
+
+		self.vertexGPU
+			:bind()
+			:updateData(
+				0,
+				ffi.sizeof(vec3f) * #self.nodes,
+				vertexCPU.v)
 	end
 
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
@@ -322,7 +383,7 @@ function App:update()
 
 	self.lineObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 	self.lineObj:draw()
-	
+
 	gl.glDisable(gl.GL_BLEND)
 
 	App.super.update(self)
@@ -330,8 +391,8 @@ end
 
 function App:reset()
 	for _,n in ipairs(self.nodes) do
-		n.pos = vec3d( crand(), crand(), crand() )
-		n.vel = vec3d(0,0,0)
+		n.pos:set(crand(), crand(), crand())
+		n.vel:set(0,0,0)
 	end
 end
 
@@ -357,53 +418,58 @@ function App:updateGUI()
 
 	for i,n in ipairs(self.nodes) do
 		local x, y, z, w = self.view.mvProjMat:mul4x4v4(n.pos:unpack())
-		n.screenpos:set(x,y,z,w)
-		x = math.floor((.5 + .5 * x / w) * self.width)
-		y = math.floor((.5 - .5 * y / w) * self.height)
-		z = 1 - z / w
-		local dx = x - mousePos.x
-		local dy = y - mousePos.y
-		local distSq = dx*dx + dy*dy
-		if distSq < bestMouseDistSq then
-			bestMouseDistSq = distSq
-			bestMouseNodeIndex = i
-			--print('z', z)
-		end
+		n.screenPos:set(x,y,z,w)
+		if x >= -w and x <= w
+		and y >= -w and y <= w
+		and z >= -w and z <= w
+		then
+			x = math.floor((.5 + .5 * x / w) * self.width)
+			y = math.floor((.5 - .5 * y / w) * self.height)
+			z = 1 - z / w
+			local dx = x - mousePos.x
+			local dy = y - mousePos.y
+			local distSq = dx*dx + dy*dy
+			if distSq < bestMouseDistSq then
+				bestMouseDistSq = distSq
+				bestMouseNodeIndex = i
+				--print('z', z)
+			end
 
-		ig.igPushID_Str(n.name)
-		ig.igSetNextWindowPos(
-			ig.ImVec2(x,y),
-			0,
-			ig.ImVec2()
-		)
-		ig.igBegin(
-			n.name,
-			nil,
-			bit.bor(
-				ig.ImGuiWindowFlags_NoDecoration,
-				ig.ImGuiWindowFlags_Tooltip
+			ig.igPushID_Str(n.name)
+			ig.igSetNextWindowPos(
+				ig.ImVec2(x,y),
+				0,
+				ig.ImVec2()
 			)
-		)
+			ig.igBegin(
+				n.name,
+				nil,
+				bit.bor(
+					ig.ImGuiWindowFlags_NoDecoration,
+					ig.ImGuiWindowFlags_Tooltip
+				)
+			)
 
-		if i == self.hoverNodeIndex then
-			ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ffff)
-		end
-		ig.igText(n.name)
-		if i == self.hoverNodeIndex then
-			ig.igPopStyleColor(1)
-		end
+			if i == self.hoverNodeIndex then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ffff)
+			end
+			ig.igText(n.name)
+			if i == self.hoverNodeIndex then
+				ig.igPopStyleColor(1)
+			end
 
-		ig.igEnd()
-		ig.igPopID()
+			ig.igEnd()
+			ig.igPopID()
+		end
 	end
 
 	-- if we are over a node then try to drag it
-	self.hoverNodeIsDragging = false
+	self.draggingNodeIndex = nil
 	if self.hoverNodeIndex
 	and self.mouse.leftDown
 	then
 		local hoverNode = assert.index(self.nodes, self.hoverNodeIndex)
-		self.hoverNodeIsDragging = true
+		self.draggingNodeIndex = self.hoverNodeIndex
 		if self.mouse.deltaPos.x ~= 0
 		or self.mouse.deltaPos.y ~= 0
 		then
@@ -425,7 +491,7 @@ function App:updateGUI()
 		then
 			self.hoverNodeIndex = bestMouseNodeIndex
 		end
-	
+
 		-- got a new node? update colors
 		if self.hoverNodeIndex ~= oldHoverNodeIndex then
 			self.colorGPU:bind()
@@ -451,7 +517,7 @@ function App:updateGUI()
 end
 
 function App:mouseDownEvent(...)
-	if self.hoverNodeIsDragging then return end
+	if self.draggingNodeIndex then return end
 	return App.super.mouseDownEvent(self, ...)
 end
 
