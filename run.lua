@@ -126,5 +126,5 @@ for i=1,#nodes do
 end
 return require 'force-directed-graph'{
 	nodes = nodes,
-	weights = weights,
+	weights = function(i,j) return weights[i][j] end,
 }:run()

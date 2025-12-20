@@ -1,5 +1,6 @@
 local table = require 'ext.table'
 local class = require 'ext.class'
+local assert = require 'ext.assert'
 local gl = require 'gl'
 local sdl = require 'sdl'
 local ig = require 'imgui'
@@ -99,11 +100,10 @@ local integrators = table{
 	},
 }
 local integratorNames = integrators:mapi(function(integrator) return integrator.name end)
-integratorIndex = #integrators
+local integratorIndeForName = integrators:mapi(function(integrator, index) return index, integrator.name end):setmetatable(nil)
+integratorIndex = assert.index(integratorIndeForName, 'RK4')
 
 
-
-local hoverNode
 
 --[[
 config format:
@@ -126,7 +126,7 @@ function App:init(args, ...)
 			pos = vec3d(crand(), crand(), crand())
 		end
 		return Node{
-			name = name,
+			name = tostring(name),
 			pos = pos,
 			screenpos = vec4d(),
 			vel = vec3d(0,0,0),
@@ -206,6 +206,11 @@ void main() {
 end
 
 function App:update()
+	if not self.hasFocus then
+		sdl.SDL_Delay(300)
+		return
+	end
+
 	if running then
 		local integrator = assert.index(integrators, integratorIndex, "unknown integrator")
 		integrator:update(self)
@@ -234,7 +239,7 @@ function App:update()
 	local vertexCPU = vertexGPU:beginUpdate()
 	local colorCPU = colorGPU:beginUpdate()
 	for _,n in ipairs(self.nodes) do
-		if n == hoverNode then
+		if n == self.hoverNode then
 			colorCPU:emplace_back():set(1,0,1)
 		else
 			colorCPU:emplace_back():set(1,1,1)
@@ -270,6 +275,13 @@ function App:update()
 	App.super.update(self)
 end
 
+function App:reset()
+	for _,n in ipairs(self.nodes) do
+		n.pos = vec3d( crand(), crand(), crand() )
+		n.vel = vec3d(0,0,0)
+	end
+end
+
 function App:updateGUI()
 	ig.luatableCheckbox('running', _G, 'running')
 	ig.luatableInputFloat('pointsize', _G, 'pointsize')
@@ -282,15 +294,12 @@ function App:updateGUI()
 	ig.luatableInputFloat('restdist', _G, 'restdist')
 	ig.luatableCombo('integrator', _G, 'integratorIndex', integratorNames)
 	if ig.igButton'reset' then
-		for _,n in ipairs(self.nodes) do
-			n.pos = vec3d( crand(), crand(), crand() )
-			n.vel = vec3d(0,0,0)
-		end
+		self:reset()
 	end
 
 
 	local mousePos = ig.igGetMousePos()
-	local bestMouseDist = math.huge
+	local bestMouseDistSq = math.huge
 	local bestMouseNode
 
 	for i,n in ipairs(self.nodes) do
@@ -301,14 +310,14 @@ function App:updateGUI()
 		z = 1 - z / w
 		local dx = x - mousePos.x
 		local dy = y - mousePos.y
-		local dist = math.sqrt(dx*dx + dy*dy)
-		if dist < bestMouseDist then
-			bestMouseDist = dist
+		local distSq = dx*dx + dy*dy
+		if distSq < bestMouseDistSq then
+			bestMouseDistSq = distSq
 			bestMouseNode = n
 			--print('z', z)
 		end
 
-		ig.igPushID_Str(n!.name)
+		ig.igPushID_Str(n.name)
 		ig.igSetNextWindowPos(
 			ig.ImVec2(x,y),
 			0,
@@ -317,48 +326,65 @@ function App:updateGUI()
 		ig.igBegin(
 			n.name,
 			nil,
-			ig.ImGuiWindowFlags_NoDecoration
-			| ig.ImGuiWindowFlags_Tooltip
+			bit.bor(
+				ig.ImGuiWindowFlags_NoDecoration,
+				ig.ImGuiWindowFlags_Tooltip
+			)
 		)
 		ig.igText(n.name)
 		ig.igEnd()
 		ig.igPopID()
 	end
-	hoverNode = nil
-	local mouseDistThreshold = 20
-	if bestMouseNode and bestMouseDist < mouseDistThreshold then
-		hoverNode = bestMouseNode
-		--ig.igBeginTooltip()
-		--ig.igText(hoverNode.name)
-		--ig.igEndTooltip()
+
+	-- if we're not dragging then search for a new node
+	if not self.hoverNodeIsDragging then
+		self.hoverNode = nil
+		local mouseDistThreshold = 20
+		if bestMouseNode and bestMouseDistSq < mouseDistThreshold * mouseDistThreshold then
+			self.hoverNode = bestMouseNode
+		end
 	end
 end
 
 function App:mouseDownEvent(...)
 	local dx, dy, shiftDown, guiDown, altDown, x, y = ...
-	if hoverNode
-	and self.mouse.leftDown
-	then
-		local dist = (hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
-		hoverNode.pos += self.view.angle:rotate(vec3d(dx,-dy,0) * (dist * 2 / self.height))
-		-- ... then drag the current mouse-over node
-		-- ... and don't update any more
-		return
+
+	-- if we are over a node then try to drag it
+	if self.hoverNode then
+		self.hoverNodeIsDragging = nil
+		if self.mouse.leftDown then
+			self.hoverNodeIsDragging = true
+			local dist = (self.hoverNode.pos - self.view.pos):dot(-self.view.angle:zAxis())
+			self.hoverNode.pos = self.hoverNode.pos + self.view.angle:rotate(vec3d(dx,-dy,0) * (dist * 2 / self.height))
+			-- ... then drag the current mouse-over node
+			-- ... and don't update any more
+			return
+		end
 	end
 
 	return App.super.mouseDownEvent(self, ...)
 end
 
 function App:event(event)
+	if event.type == sdl.SDL_EVENT_WINDOW_FOCUS_GAINED then
+		self.hasFocus = true
+		return
+	elseif event.type == sdl.SDL_EVENT_WINDOW_FOCUS_LOST then
+		self.hasFocus = false
+		return
+	end
+
 	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 
 	App.super.event(self, event)
 
 	if canHandleKeyboard then
-		if event[0].type == sdl.SDL_EVENT_KEY_DOWN then
-			if event[0].key.key == sdl.SDLK_SPACE then
+		if event.type == sdl.SDL_EVENT_KEY_DOWN then
+			if event.key.key == sdl.SDLK_SPACE then
 				running = not running
+			elseif event.key.key == sdl.SDLK_R then
+				self:reset()
 			end
 		end
 	end
