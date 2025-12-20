@@ -2,9 +2,13 @@ local table = require 'ext.table'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
 local gl = require 'gl'
+local GLArrayBuffer = require 'gl.arraybuffer'
+local GLElementArrayBuffer = require 'gl.elementarraybuffer'
+local GLSceneObject = require 'gl.sceneobject'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local ffi = require 'ffi'
+local vec3f = require 'vec-ffi.vec3f'
 local vec3d = require 'vec-ffi.vec3d'
 local vec4d = require 'vec-ffi.vec4d'
 
@@ -165,7 +169,28 @@ end
 function App:initGL(...)
 	App.super.initGL(self, ...)
 
-	self.drawObj = require 'gl.sceneobject'{
+	-- TODO interleave attrs or nah?
+	self.vertexGPU = GLArrayBuffer{
+		dim = 3,
+		useVec = true,
+	}
+
+	self.colorGPU = GLArrayBuffer{
+		dim = 3,
+		useVec = true,
+		-- TODO allow .count for useVec?
+	}
+	-- ... instead of .count I do this ...
+	do
+		local colorCPU = self.colorGPU:beginUpdate()
+		for _,n in ipairs(self.nodes) do
+			colorCPU:emplace_back():set(1,1,1)
+		end
+		self.colorGPU:endUpdate()
+	end
+	
+
+	self.pointObj = GLSceneObject{
 		program = {
 			version = 'latest',
 			precision = 'best',
@@ -189,17 +214,61 @@ void main() {
 		},
 		geometry = {
 			mode = gl.GL_POINTS,
+			count = #self.nodes,
 		},
-		vertexes = {
-			dim = 3,
-			useVec = true,
-		},
+		vertexes = self.vertexGPU,
 		attrs = {
 			color = {
-				buffer = {
-					dim = 3,
-					useVec = true,
-				},
+				buffer = self.colorGPU,
+			},
+		},
+	}
+
+	-- assume our weights don't change during runtime
+	-- also assume weight(i,j) function is symmetric
+	local lineIndexes = table()
+	for i=1,#self.nodes-1 do
+		for j=i+1,#self.nodes do
+			local w = self.weights(i,j)
+			if w ~= 0 then
+				lineIndexes:insert(i-1)
+				lineIndexes:insert(j-1)
+			end
+		end
+	end
+	local lineIndexesGPU = GLElementArrayBuffer{
+		data = lineIndexes,
+	}
+	self.lineObj = GLSceneObject{
+		program = {
+			version = 'latest',
+			precision = 'best',
+			vertexCode = [[
+layout(location=0) in vec3 vertex;
+layout(location=1) in vec3 color;
+out vec3 colorv;
+uniform mat4 mvProjMat;
+void main() {
+	colorv = color;
+	gl_Position = mvProjMat * vec4(vertex, 1.);
+}
+]],
+			fragmentCode = [[
+in vec3 colorv;
+out vec4 fragColor;
+void main() {
+	fragColor = vec4(colorv, 1.);
+}
+]],
+		},
+		geometry = {
+			mode = gl.GL_LINES,
+			indexes = lineIndexesGPU,
+		},
+		vertexes = self.vertexGPU,
+		attrs = {
+			color = {
+				buffer = self.colorGPU,
 			},
 		},
 	}
@@ -218,6 +287,14 @@ function App:update()
 			n.vel = n.vel * veldecay	-- decay / bound
 			n.pos = n.pos * posdecay	-- decay / bound
 		end
+	
+		local vertexGPU = self.vertexGPU
+		local vertexCPU = vertexGPU:beginUpdate()
+		for _,n in ipairs(self.nodes) do
+			local v = vertexCPU:emplace_back()
+			v.x, v.y, v.z = n.pos:unpack()
+		end
+		vertexGPU:endUpdate()
 	end
 
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
@@ -232,45 +309,17 @@ function App:update()
 	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 	gl.glEnable(gl.GL_BLEND)
 
-	self.drawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
-
-	local vertexGPU = self.drawObj.attrs.vertex.buffer
-	local colorGPU = self.drawObj.attrs.color.buffer
-	local vertexCPU = vertexGPU:beginUpdate()
-	local colorCPU = colorGPU:beginUpdate()
-	for _,n in ipairs(self.nodes) do
-		if n == self.hoverNode then
-			colorCPU:emplace_back():set(1,0,1)
-		else
-			colorCPU:emplace_back():set(1,1,1)
-		end
-		vertexCPU:emplace_back():set(n.pos:unpack())
-	end
-	-- TODO endUpdate pass to :draw() overrides...
-	self.drawObj.geometry.mode = gl.GL_POINTS
-	self.drawObj:endUpdate()
+	-- TODO replace this with billboards for nodes
+	self.pointObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+	self.pointObj:draw()
 
 	gl.glEnable(gl.GL_BLEND)
 	gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 
-	vertexCPU = vertexGPU:beginUpdate()
-	colorCPU = colorGPU:beginUpdate()
-	for i,n in ipairs(self.nodes) do
-		for j,n2 in ipairs(self.nodes) do
-			if i ~= j
-			and self.weights(i, j) ~= 0
-			then
-				local l = drawcoeff * self.weights(i, j)
-				colorCPU:emplace_back():set(l,l,l)
-				colorCPU:emplace_back():set(l,l,l)
-				vertexCPU:emplace_back():set(n.pos:unpack())
-				vertexCPU:emplace_back():set(n2.pos:unpack())
-			end
-		end
-	end
-	-- TODO endUpdate pass to :draw() overrides...
-	self.drawObj.geometry.mode = gl.GL_LINES
-	self.drawObj:endUpdate()
+	self.lineObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+	self.lineObj:draw()
+	
+	gl.glDisable(gl.GL_BLEND)
 
 	App.super.update(self)
 end
@@ -361,6 +410,8 @@ function App:updateGUI()
 			-- ... and don't update any more
 		end
 	else
+		local oldHoverNode = self.hoverNode
+
 		-- not dragging? search for new hoverNode
 		self.hoverNode = nil
 		local mouseDistThreshold = 20
@@ -368,6 +419,30 @@ function App:updateGUI()
 		and bestMouseDistSq < mouseDistThreshold * mouseDistThreshold
 		then
 			self.hoverNode = bestMouseNode
+		end
+	
+		-- got a new node? update colors
+		if self.hoverNode ~= oldHoverNode then
+			self.colorGPU:bind()
+			local colorCPU = self.colorGPU.vec
+			local oldIndex = self.nodes:find(oldHoverNode)
+			if oldIndex then
+				oldIndex -= 1
+				colorCPU.v[oldIndex]:set(1,1,1)	-- clear old
+				self.colorGPU:updateData(
+					ffi.sizeof(vec3f) * oldIndex,
+					ffi.sizeof(vec3f),
+					colorCPU.v + oldIndex)
+			end
+			local newIndex = self.nodes:find(self.hoverNode)
+			if newIndex then
+				newIndex -= 1
+				colorCPU.v[newIndex]:set(1,1,0)
+				self.colorGPU:updateData(
+					ffi.sizeof(vec3f) * newIndex,
+					ffi.sizeof(vec3f),
+					colorCPU.v + newIndex)
+			end
 		end
 	end
 end
