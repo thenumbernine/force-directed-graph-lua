@@ -31,6 +31,78 @@ posdecay = .999
 repel = 1
 restdist = .3
 
+local integrators = table{
+	{
+		name = 'F.E.',
+		update = function(integrator, app)
+			app:calcAccel()
+			for _,n in ipairs(app.nodes) do
+				n.pos = n.pos + n.vel * dt
+				n.vel = n.vel + n.acc * dt
+			end
+		end,
+	},
+	{
+		name = 'RK4',
+		update = function(integrator, app)
+			for _,n in ipairs(app.nodes) do
+				n.pushVel = vec3d(n.vel:unpack())
+				n.pushPos = vec3d(n.pos:unpack())
+			end
+			app:calcAccel()
+			for _,n in ipairs(app.nodes) do
+				n.k1a = vec3d(n.acc:unpack())
+				n.k1v = vec3d(n.vel:unpack())
+				n.vel = n.pushVel + n.k1a * dt/2
+				n.pos = n.pushPos + n.k1v * dt/2
+			end
+			app:calcAccel()
+			for _,n in ipairs(app.nodes) do
+				n.k2a = vec3d(n.acc:unpack())
+				n.k2v = vec3d(n.vel:unpack())
+				n.vel = n.pushVel + n.k2a * dt/2
+				n.pos = n.pushPos + n.k2v * dt/2
+			end
+			app:calcAccel()
+			for _,n in ipairs(app.nodes) do
+				n.k3a = vec3d(n.acc:unpack())
+				n.k3v = vec3d(n.vel:unpack())
+				n.vel = n.pushVel + n.k3a * dt
+				n.pos = n.pushPos + n.k3v * dt
+			end
+			app:calcAccel()
+			for _,n in ipairs(app.nodes) do
+				n.k4a = vec3d(n.acc:unpack())
+				n.k4v = vec3d(n.vel:unpack())
+				n.vel = n.pushVel + (n.k1a + n.k2a * 2 + n.k3a * 2 + n.k4a) / 6 * dt
+				n.pos = n.pushPos + (n.k3v + n.k2v * 2 + n.k3v * 2 + n.k4v) / 6 * dt
+			end
+		end,
+	},
+	{
+		name = 'P.C.',
+		update = function(integrator, app)
+			app:calcAccel()
+			for _,n in ipairs(app.nodes) do
+				n.pushVel = vec3d(n.vel:unpack())
+				n.pushPos = vec3d(n.pos:unpack())
+				n.pushAcc = vec3d(n.acc:unpack())
+			end
+			for iter=1,30 do
+				app:calcAccel()
+				for _,n in ipairs(app.nodes) do
+					n.pos = n.pushPos + (.5 * dt) * (n.pushVel + n.vel)
+					n.vel = n.pushVel + (.5 * dt) * (n.pushAcc + n.acc)
+				end
+			end
+		end,
+	},
+}
+local integratorNames = integrators:mapi(function(integrator) return integrator.name end)
+integratorIndex = #integrators
+
+
+
 local hoverNode
 
 --[[
@@ -70,6 +142,7 @@ function App:calcAccel()
 		n.acc = vec3d(0,0,0)
 	end
 
+	-- TODO predictor-corrector here, i.e. lazy implicit solver
 	for i,n in ipairs(self.nodes) do
 		for j,n2 in ipairs(self.nodes) do
 			if i ~= j then
@@ -134,47 +207,8 @@ end
 
 function App:update()
 	if running then
--- [[ Runge-Kutta 4
-		for _,n in ipairs(self.nodes) do
-			n.pushVel = vec3d(n.vel:unpack())
-			n.pushPos = vec3d(n.pos:unpack())
-		end
-		self:calcAccel()
-		for _,n in ipairs(self.nodes) do
-			n.k1a = vec3d(n.acc:unpack())
-			n.k1v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + n.k1a * dt/2
-			n.pos = n.pushPos + n.k1v * dt/2
-		end
-		self:calcAccel()
-		for _,n in ipairs(self.nodes) do
-			n.k2a = vec3d(n.acc:unpack())
-			n.k2v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + n.k2a * dt/2
-			n.pos = n.pushPos + n.k2v * dt/2
-		end
-		self:calcAccel()
-		for _,n in ipairs(self.nodes) do
-			n.k3a = vec3d(n.acc:unpack())
-			n.k3v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + n.k3a * dt
-			n.pos = n.pushPos + n.k3v * dt
-		end
-		self:calcAccel()
-		for _,n in ipairs(self.nodes) do
-			n.k4a = vec3d(n.acc:unpack())
-			n.k4v = vec3d(n.vel:unpack())
-			n.vel = n.pushVel + (n.k1a + n.k2a * 2 + n.k3a * 2 + n.k4a) / 6 * dt
-			n.pos = n.pushPos + (n.k3v + n.k2v * 2 + n.k3v * 2 + n.k4v) / 6 * dt
-		end
---]]
---[[ forward-Euler
-		for _,n in ipairs(self.nodes) do
-			n.pos = n.pos + n.vel * dt
-			n.vel = n.vel + n.acc * dt
-		end
---]]
-
+		local integrator = assert.index(integrators, integratorIndex, "unknown integrator")
+		integrator:update(self)
 		for _,n in ipairs(self.nodes) do
 			n.vel = n.vel * veldecay	-- decay / bound
 			n.pos = n.pos * posdecay	-- decay / bound
@@ -246,6 +280,7 @@ function App:updateGUI()
 	ig.luatableInputFloat('posdecay', _G, 'posdecay')
 	ig.luatableInputFloat('repel', _G, 'repel')
 	ig.luatableInputFloat('restdist', _G, 'restdist')
+	ig.luatableCombo('integrator', _G, 'integratorIndex', integratorNames)
 	if ig.igButton'reset' then
 		for _,n in ipairs(self.nodes) do
 			n.pos = vec3d( crand(), crand(), crand() )
