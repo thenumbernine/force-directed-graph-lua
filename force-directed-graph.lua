@@ -425,7 +425,9 @@ layout(location=0) out vec3 acc;
 void main() {
 	acc = vec3(0., 0., 0.);
 
-#error TODO how to encode the graph sparse matrix
+#error TODO how to encode the graph sparse matrix...
+#error or just use a texture for a dense matrix...
+#error but then its size will grow fast...
 }
 ]],
 	}:unbind()
