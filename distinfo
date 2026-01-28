@@ -4,8 +4,10 @@
 
 name = "force-directed-graph"
 files = {
-	["force-directed-graph.lua"] = "force-directed-graph/force-directed-graph.lua",
-	["run.lua"] = "force-directed-graph/run.lua",
+	"README.md",
+	"distinfo",
+	"force-directed-graph.lua",
+	"run.lua",
 }
 deps = {
 	"ext",
