@@ -1,4 +1,6 @@
 #!/usr/bin/env luajit
+local cmdline = require 'ext.cmdline'(...)
+local gl = require 'gl.setup'(cmdline.gl)
 local table = require 'ext.table'
 local range = require 'ext.range'
 local matrix = require 'matrix'

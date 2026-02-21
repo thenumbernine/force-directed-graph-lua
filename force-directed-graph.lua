@@ -1,3 +1,4 @@
+local op = require 'ext.op'
 local table = require 'ext.table'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
@@ -472,6 +473,21 @@ void main() {
 		},
 	}
 --]==]
+
+	-- [[ not for GLES
+	if op.safeindex(gl, 'GL_POINT_SMOOTH_HINT') then
+		gl.glHint(gl.GL_POINT_SMOOTH_HINT, gl.GL_NICEST)
+		gl.glEnable(gl.GL_POINT_SMOOTH)
+	end
+	if op.safeindex(gl, 'GL_LINE_SMOOTH_HINT') then
+		gl.glHint(gl.GL_LINE_SMOOTH_HINT, gl.GL_NICEST)
+		gl.glEnable(gl.GL_LINE_SMOOTH)
+	end
+	if op.safeindex(gl, 'GL_POLYGON_SMOOTH_HINT') then
+		gl.glHint(gl.GL_POLYGON_SMOOTH_HINT, gl.GL_NICEST)
+		gl.glEnable(gl.GL_POLYGON_SMOOTH)
+	end
+	--]]
 end
 
 local pushDraggingPos = vec3f()
@@ -524,12 +540,6 @@ function App:update()
 
 	gl.glClear(bit.bor(gl.GL_COLOR_BUFFER_BIT, gl.GL_DEPTH_BUFFER_BIT))
 
-	gl.glHint(gl.GL_POINT_SMOOTH, gl.GL_NICEST)
-	gl.glHint(gl.GL_LINE_SMOOTH, gl.GL_NICEST)
-	gl.glHint(gl.GL_POLYGON_SMOOTH, gl.GL_NICEST)
-	gl.glEnable(gl.GL_POINT_SMOOTH)
-	gl.glEnable(gl.GL_LINE_SMOOTH)
-	gl.glEnable(gl.GL_POLYGON_SMOOTH)
 	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 	gl.glEnable(gl.GL_BLEND)
 
