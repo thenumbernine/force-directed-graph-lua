@@ -569,6 +569,9 @@ function App:reset()
 		npos = npos + 1
 		nvel = nvel + 1
 	end
+	self.velGPU
+		:bind()
+		:updateData()
 	self.posGPU
 		:bind()
 		:updateData()
